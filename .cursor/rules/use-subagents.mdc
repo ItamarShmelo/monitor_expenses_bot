@@ -1,0 +1,46 @@
+---
+description: Use specialized subagents for their areas of expertise
+alwaysApply: true
+---
+
+# Use Subagents Where Appropriate
+
+When performing tasks that fall under a subagent's expertise, delegate to that subagent.
+
+## Available Subagents
+
+| Subagent | Expertise | When to Use |
+|----------|-----------|-------------|
+| `code-style-enforcer` | Naming conventions, docstrings, code formatting | After modifying Python code |
+| `type-hints-enforcer` | Type annotations, mypy verification | After modifying Python code |
+| `docs-updater` | README.md, IMPLEMENTATION.md | After changes affecting API or architecture |
+
+## When to Invoke Each Subagent
+
+### code-style-enforcer
+
+Invoke when:
+- Creating new Python files
+- Modifying classes, methods, or functions
+- Adding or changing docstrings
+
+### type-hints-enforcer
+
+Invoke when:
+- Creating new Python files
+- Adding or modifying function signatures
+- Working with complex types (generics, protocols, etc.)
+
+### docs-updater
+
+Invoke when:
+- Changing public API (new/modified/removed classes, methods, parameters)
+- Changing usage patterns or configuration options
+- Modifying architecture or internal design
+
+## Checklist
+
+After Python code changes, consider:
+- [ ] Does this need style enforcement? → `code-style-enforcer`
+- [ ] Does this need type hints? → `type-hints-enforcer`
+- [ ] Does this affect documentation? → `docs-updater`

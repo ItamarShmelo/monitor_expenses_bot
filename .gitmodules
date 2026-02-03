@@ -1,0 +1,3 @@
+[submodule "my_bot_framework"]
+	path = my_bot_framework
+	url = git@github.com:ItamarShmelo/my_bot_framework.git
