@@ -612,9 +612,15 @@ class ModifyExpenseDialog(Dialog):
         old_category_name = CATEGORY_NAMES.get(old_category, old_category)
         old_description = original_expense.description
         old_price = original_expense.price
+        old_date: str = original_expense.timestamp.strftime("%d/%m")
 
         # Collect new values with current values as defaults
+        expense_summary: str = (
+            f"[{old_category_name}] {old_description} - "
+            f"₪{old_price:.2f} ({old_date})"
+        )
         await get_app().send_messages(
+            f"Modifying expense: {expense_summary}\n\n"
             f"Current values:\n"
             f"Category: {old_category_name}\n"
             f"Description: {old_description}\n"
