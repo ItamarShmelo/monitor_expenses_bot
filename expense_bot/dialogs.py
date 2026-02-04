@@ -30,7 +30,13 @@ from my_bot_framework import (
     TelegramImageMessage,
 )
 
-from .constants import CATEGORIES, CATEGORY_HELP, CATEGORY_NAMES, VALID_CATEGORIES
+from .constants import (
+    CATEGORIES,
+    CATEGORIES_NO_HELP,
+    CATEGORY_HELP,
+    CATEGORY_NAMES,
+    VALID_CATEGORIES,
+)
 from .expense_manager import Expense, ExpenseManager
 from .charts import generate_expense_chart
 
@@ -306,7 +312,9 @@ def _create_expense_selection_dialog(year: int, month: int) -> Dialog:
 class RemoveExpenseDialog(Dialog):
     """Dialog for removing an expense.
 
-    Allows selecting from current month or a different month.
+    Flow: Month selection -> Expense selection -> Confirmation -> Removal.
+    Allows selecting expenses from the current month or a different month.
+    After selecting an expense, prompts for confirmation before removal.
     """
 
     def __init__(self) -> None:
@@ -314,20 +322,24 @@ class RemoveExpenseDialog(Dialog):
         super().__init__()
 
     async def _run_dialog(self) -> DialogResult:
-        """Run the remove expense flow."""
+        """Run the remove expense flow.
+
+        Prompts user to select a month, then an expense from that month,
+        then confirms the removal action.
+
+        Returns:
+            Dict with "expense" key containing the selected expense callback data,
+            or cancellation result if user cancels at any step.
+        """
         now = datetime.now()
 
         # First, ask which month
-        month_choice = ChoiceBranchDialog(
+        month_choice = ChoiceDialog(
             prompt="Select expenses from:",
-            branches={
-                "current": ("Current Month", ConfirmDialog("Continue?", include_cancel=True)),
-                "different": ("Different Month", UserInputDialog(
-                    "Enter month (MM/YYYY):",
-                    validator=validate_date_format("%m/%Y", "MM/YYYY"),
-                    include_cancel=True,
-                )),
-            },
+            choices=[
+                ("Current Month", "current"),
+                ("Different Month", "different"),
+            ],
             include_cancel=True,
         )
 
@@ -338,47 +350,68 @@ class RemoveExpenseDialog(Dialog):
             return month_result
 
         # Determine year and month
-        if isinstance(month_result, dict):
-            if "current" in month_result:
-                year, month = now.year, now.month
-            elif "different" in month_result:
-                date_str = month_result["different"]
-                if is_cancelled(date_str):
-                    self._value = date_str
-                    return date_str
-                try:
-                    parsed = datetime.strptime(date_str, "%m/%Y")
-                    year, month = parsed.year, parsed.month
-                except (ValueError, TypeError):
-                    await get_app().send_messages("Invalid date format.")
-                    self._value = None
-                    return None
-            else:
-                year, month = now.year, now.month
+        if month_result == "current":
+            year, month = now.year, now.month
+        elif month_result == "different":
+            date_dialog = UserInputDialog(
+                "Enter month (MM/YYYY):",
+                validator=validate_date_format("%m/%Y", "MM/YYYY"),
+                include_cancel=True,
+            )
+            date_result = await date_dialog.start(self.context)
+            if is_cancelled(date_result):
+                self._value = date_result
+                return date_result
+            if not isinstance(date_result, str):
+                await get_app().send_messages("Invalid date format.")
+                self._value = None
+                return None
+            try:
+                parsed = datetime.strptime(date_result, "%m/%Y")
+                year, month = parsed.year, parsed.month
+            except (ValueError, TypeError):
+                await get_app().send_messages("Invalid date format.")
+                self._value = None
+                return None
         else:
             year, month = now.year, now.month
 
-        # Show expense selection
-        expense_dialog = _create_expense_selection_dialog(year, month)
-        expense_result = await expense_dialog.start(self.context)
+        # Loop for expense selection and confirmation
+        # If user clicks "No" on confirmation, return to expense selection
+        while True:
+            # Show expense selection
+            expense_dialog = _create_expense_selection_dialog(year, month)
+            expense_result = await expense_dialog.start(self.context)
 
-        if is_cancelled(expense_result):
-            self._value = expense_result
-            return expense_result
+            if is_cancelled(expense_result):
+                self._value = expense_result
+                return expense_result
 
-        self._value = {"expense": expense_result}
-        return self._value
+            # Confirm deletion after expense is selected
+            confirm_dialog = ConfirmDialog("Remove this expense?", include_cancel=True)
+            confirm_result = await confirm_dialog.start(self.context)
+
+            if is_cancelled(confirm_result):
+                self._value = confirm_result
+                return confirm_result
+
+            # If user confirmed, proceed with removal
+            if confirm_result is True:
+                self._value = {"expense": expense_result}
+                return self._value
+
+            # If user declined (False), loop back to expense selection
 
     def build_result(self) -> DialogResult:
         """Return the dialog result."""
         return self._value
 
     def handle_callback(self, callback_data: str) -> None:
-        """Not used - delegates to child dialogs."""
+        """Handle callback - child dialogs handle their own callbacks."""
         pass
 
     def handle_text_input(self, text: str) -> None:
-        """Not used - delegates to child dialogs."""
+        """Handle text input - child dialogs handle their own text input."""
         pass
 
 
@@ -454,10 +487,35 @@ async def _on_modify_complete(result: DialogResult) -> None:
         await get_app().send_messages("Expense not found.")
 
 
+def _get_expense_by_id(
+    year: int,
+    month: int,
+    expense_id: int,
+) -> Optional[Expense]:
+    """Get a specific expense by ID from a given year and month.
+
+    Args:
+        year: The year to search in.
+        month: The month to search in.
+        expense_id: The unique ID of the expense to find.
+
+    Returns:
+        The Expense object if found, None otherwise.
+    """
+    manager = get_expense_manager()
+    expenses = manager.get_expenses(year, month)
+    for expense in expenses:
+        if expense.id == expense_id:
+            return expense
+    return None
+
+
 class ModifyExpenseDialog(Dialog):
     """Dialog for modifying an expense.
 
-    First selects an expense, then collects new values.
+    Flow: Month selection -> Expense selection -> Edit values -> Confirmation.
+    Shows current values as defaults with option to keep them.
+    Clicking "No" on confirmation returns to the start of the dialog.
     """
 
     def __init__(self) -> None:
@@ -465,47 +523,68 @@ class ModifyExpenseDialog(Dialog):
         super().__init__()
 
     async def _run_dialog(self) -> DialogResult:
-        """Run the modify expense flow."""
+        """Run the modify expense flow.
+
+        Returns:
+            Dict with expense data and new values,
+            or cancellation result if user cancels.
+        """
+        # Main loop - "No" on confirmation returns here
+        while True:
+            result = await self._collect_modification()
+            if result is None:
+                # User declined confirmation, restart
+                continue
+            # Either cancelled or confirmed
+            self._value = result
+            return result
+
+    async def _collect_modification(self) -> DialogResult:
+        """Collect expense selection and new values.
+
+        Returns:
+            Dict with modification data if confirmed,
+            None if user clicked "No" on confirmation,
+            or cancellation result if cancelled.
+        """
         now = datetime.now()
 
         # First, ask which month
-        month_choice = ChoiceBranchDialog(
+        month_choice = ChoiceDialog(
             prompt="Select expenses from:",
-            branches={
-                "current": ("Current Month", ConfirmDialog("Continue?", include_cancel=True)),
-                "different": ("Different Month", UserInputDialog(
-                    "Enter month (MM/YYYY):",
-                    validator=validate_date_format("%m/%Y", "MM/YYYY"),
-                    include_cancel=True,
-                )),
-            },
+            choices=[
+                ("Current Month", "current"),
+                ("Different Month", "different"),
+            ],
             include_cancel=True,
         )
 
         month_result = await month_choice.start(self.context)
 
         if is_cancelled(month_result):
-            self._value = month_result
             return month_result
 
         # Determine year and month
-        if isinstance(month_result, dict):
-            if "current" in month_result:
-                year, month = now.year, now.month
-            elif "different" in month_result:
-                date_str = month_result["different"]
-                if is_cancelled(date_str):
-                    self._value = date_str
-                    return date_str
-                try:
-                    parsed = datetime.strptime(date_str, "%m/%Y")
-                    year, month = parsed.year, parsed.month
-                except (ValueError, TypeError):
-                    await get_app().send_messages("Invalid date format.")
-                    self._value = None
-                    return None
-            else:
-                year, month = now.year, now.month
+        if month_result == "current":
+            year, month = now.year, now.month
+        elif month_result == "different":
+            date_dialog = UserInputDialog(
+                "Enter month (MM/YYYY):",
+                validator=validate_date_format("%m/%Y", "MM/YYYY"),
+                include_cancel=True,
+            )
+            date_result = await date_dialog.start(self.context)
+            if is_cancelled(date_result):
+                return date_result
+            if not isinstance(date_result, str):
+                await get_app().send_messages("Invalid date format.")
+                return None
+            try:
+                parsed = datetime.strptime(date_result, "%m/%Y")
+                year, month = parsed.year, parsed.month
+            except (ValueError, TypeError):
+                await get_app().send_messages("Invalid date format.")
+                return None
         else:
             year, month = now.year, now.month
 
@@ -514,57 +593,154 @@ class ModifyExpenseDialog(Dialog):
         expense_result = await expense_dialog.start(self.context)
 
         if is_cancelled(expense_result):
-            self._value = expense_result
             return expense_result
 
-        # Now collect new values
-        await get_app().send_messages("Now enter the new values for this expense:")
+        # Get the original expense to show current values
+        if not isinstance(expense_result, str) or ":" not in expense_result:
+            await get_app().send_messages("Invalid expense selection.")
+            return None
 
-        # Category selection
-        category_dialog = CategoryChoiceWithHelp()
+        exp_year, exp_month, expense_id = _parse_expense_callback(expense_result)
+        original_expense = _get_expense_by_id(exp_year, exp_month, expense_id)
+
+        if original_expense is None:
+            await get_app().send_messages("Expense not found.")
+            return None
+
+        # Get old values for display
+        old_category = original_expense.category
+        old_category_name = CATEGORY_NAMES.get(old_category, old_category)
+        old_description = original_expense.description
+        old_price = original_expense.price
+
+        # Collect new values with current values as defaults
+        await get_app().send_messages(
+            f"Current values:\n"
+            f"Category: {old_category_name}\n"
+            f"Description: {old_description}\n"
+            f"Price: ₪{old_price:.2f}\n\n"
+            f"Select new values or keep current:"
+        )
+
+        # Category selection with "Keep Current" option
+        # Order: categories, Keep Current, Help (Cancel added by dialog)
+        category_choices = CATEGORIES_NO_HELP + [("Keep Current", "keep"), ("Help", "help")]
+        category_dialog = ChoiceDialog(
+            prompt=f"Category (current: {old_category_name}):",
+            choices=category_choices,
+            include_cancel=True,
+        )
         category_result = await category_dialog.start(self.context)
 
         if is_cancelled(category_result):
-            self._value = category_result
             return category_result
 
-        # Description
-        desc_dialog = UserInputDialog("Enter new description:")
-        desc_result = await desc_dialog.start(self.context)
+        # Handle "help" selection for category
+        while category_result == "help":
+            await get_app().send_messages(CATEGORY_HELP)
+            category_result = await category_dialog.start(self.context)
+            if is_cancelled(category_result):
+                return category_result
 
-        if is_cancelled(desc_result):
-            self._value = desc_result
-            return desc_result
+        new_category = old_category if category_result == "keep" else category_result
 
-        # Price
-        price_dialog = UserInputDialog(
-            "Enter new price:",
-            validator=validate_positive_float,
+        # Description with "Keep Current" option at the end
+        desc_choice = ChoiceDialog(
+            prompt=f"Description (current: {old_description}):",
+            choices=[
+                ("Enter New", "new"),
+                ("Keep Current", "keep"),
+            ],
+            include_cancel=True,
         )
-        price_result = await price_dialog.start(self.context)
+        desc_choice_result = await desc_choice.start(self.context)
 
-        if is_cancelled(price_result):
-            self._value = price_result
-            return price_result
+        if is_cancelled(desc_choice_result):
+            return desc_choice_result
 
-        self._value = {
+        if desc_choice_result == "new":
+            desc_dialog = UserInputDialog("Enter new description:")
+            desc_result = await desc_dialog.start(self.context)
+            if is_cancelled(desc_result):
+                return desc_result
+            new_description = desc_result if isinstance(desc_result, str) else old_description
+        else:
+            new_description = old_description
+
+        # Price with "Keep Current" option at the end
+        price_choice = ChoiceDialog(
+            prompt=f"Price (current: ₪{old_price:.2f}):",
+            choices=[
+                ("Enter New", "new"),
+                ("Keep Current", "keep"),
+            ],
+            include_cancel=True,
+        )
+        price_choice_result = await price_choice.start(self.context)
+
+        if is_cancelled(price_choice_result):
+            return price_choice_result
+
+        if price_choice_result == "new":
+            price_dialog = UserInputDialog(
+                "Enter new price:",
+                validator=validate_positive_float,
+            )
+            price_result = await price_dialog.start(self.context)
+            if is_cancelled(price_result):
+                return price_result
+            try:
+                new_price = float(price_result) if isinstance(price_result, str) else old_price
+            except (ValueError, TypeError):
+                new_price = old_price
+        else:
+            new_price = old_price
+
+        # Build confirmation message showing old vs new
+        new_category_name = CATEGORY_NAMES.get(str(new_category), str(new_category))
+        changes: list[str] = []
+
+        if new_category != old_category:
+            changes.append(f"Category: {old_category_name} → {new_category_name}")
+        if new_description != old_description:
+            changes.append(f"Description: {old_description} → {new_description}")
+        if new_price != old_price:
+            changes.append(f"Price: ₪{old_price:.2f} → ₪{new_price:.2f}")
+
+        if not changes:
+            await get_app().send_messages("No changes made.")
+            return None
+
+        confirm_message = "Confirm changes?\n\n" + "\n".join(changes)
+
+        # Confirm modification
+        confirm_dialog = ConfirmDialog(confirm_message, include_cancel=True)
+        confirm_result = await confirm_dialog.start(self.context)
+
+        if is_cancelled(confirm_result):
+            return confirm_result
+
+        # If user declined, return None to trigger restart
+        if confirm_result is False:
+            return None
+
+        return {
             "original_expense": expense_result,
-            "category": category_result,
-            "description": desc_result,
-            "price": price_result,
+            "category": new_category,
+            "description": new_description,
+            "price": str(new_price),
         }
-        return self._value
 
     def build_result(self) -> DialogResult:
         """Return the dialog result."""
         return self._value
 
     def handle_callback(self, callback_data: str) -> None:
-        """Not used - delegates to child dialogs."""
+        """Handle callback - child dialogs handle their own callbacks."""
         pass
 
     def handle_text_input(self, text: str) -> None:
-        """Not used - delegates to child dialogs."""
+        """Handle text input - child dialogs handle their own text input."""
         pass
 
 

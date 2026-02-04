@@ -77,8 +77,8 @@ The bot will send a startup message when it begins running. Type `/info` for hel
 | Command | Description |
 |---------|-------------|
 | `/add` | Add a new expense. Interactive flow: select category → enter description → enter price |
-| `/remove` | Remove an expense. Choose from current month or enter a different month (MM/YYYY), then select from paginated list |
-| `/modify` | Modify an existing expense. Select expense, then provide new category, description, and price |
+| `/remove` | Remove an expense. Choose from current month or enter a different month (MM/YYYY), then select from paginated list, then confirm removal |
+| `/modify` | Modify an existing expense. Select expense, see current values, choose to keep or change each field, then confirm changes with old→new comparison |
 | `/recent` | Show the 10 most recent expenses across all months, sorted by date |
 | `/export` | Download expenses as CSV file. Choose previous month or enter custom month (MM/YYYY) |
 | `/chart` | Generate a pie chart of expenses by category. Choose previous month or enter custom month (MM/YYYY) |
@@ -101,6 +101,15 @@ Most commands use interactive dialogs that guide you through the process:
   - Description
   - Price
   - Date (DD/MM format)
+
+- **Modify Flow**: When modifying an expense:
+  - After selecting an expense, you'll see its current values
+  - For each field (category, description, price), you can choose "Keep Current" or provide a new value
+  - After collecting all changes, you'll see a confirmation showing old→new values for each changed field
+  - Clicking "Yes" confirms the changes, "No" returns to the start to select a different expense, "Cancel" exits
+  - If no changes are made, the dialog exits with "No changes made"
+
+- **Confirmation**: When removing an expense, you'll be asked to confirm before the expense is deleted.
 
 - **Cancellation**: All dialogs support cancellation. Use the "Cancel" button or type `/cancel` to exit at any point.
 
@@ -132,7 +141,7 @@ Each CSV file has the following columns:
 - `description` - Brief description of the expense
 - `price` - Amount in dollars (stored with 2 decimal places)
 
-**Note:** When modifying expenses, the `id` and `timestamp` are preserved to maintain the original order and creation time.
+**Note:** When modifying expenses, the `id` and `timestamp` are preserved to maintain the original order and creation time. You can keep current values for any field by selecting "Keep Current" during modification.
 
 ## Project Structure
 

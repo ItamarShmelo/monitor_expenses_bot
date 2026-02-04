@@ -236,16 +236,39 @@ Month      (MM/YYYY)
          │
          ▼
 ┌─────────────────┐
-│ PaginatedChoice │  5 expenses per page, newest first
-│    Dialog       │  [Category] Description - ₪X.XX (DD/MM)
-└────────┬────────┘
-         │
-         ▼
+│ PaginatedChoice │◄─────────┐ 5 expenses per page, newest first
+│    Dialog       │          │ [Category] Description - ₪X.XX (DD/MM)
+└────────┬────────┘          │
+         │                   │
+         ▼                   │
+┌─────────────────┐          │
+│ ConfirmDialog   │          │  
+│ "Remove this    │          │
+│      expense?"  │          │
+└────────┬────────┘          │
+         │                   │
+    ┌────┴────┐              │
+    │         │              │
+    ▼         ▼              │
+  Yes        No ─────────────┘
+    │              (loops back to select different expense)
+    ▼
 ┌─────────────────┐
-│  DialogHandler  │  _on_remove_complete callback
-│   (remove)      │  → expense_manager.remove_expense()
+│  DialogHandler  │
+│   (remove)      │
+│                 │
+│  → expense_     │
+│    manager.     │
+│    remove_      │
+│    expense()    │
 └─────────────────┘
 ```
+
+**Confirmation Dialog Behavior:**
+
+- **"Yes"**: Proceeds with removal → `_on_remove_complete` callback
+- **"No"**: Loops back to expense selection (allows selecting a different expense)
+- **"Cancel"**: Exits the flow entirely
 
 **Expense Callback Data Format:**
 
@@ -260,40 +283,101 @@ def _parse_expense_callback(callback: str) -> tuple[int, int, int]:
 ### Modify Expense Flow
 
 ```
+┌─────────────────┐◄────────────────────────────────────────────┐
+│ Month Selection │  Same as Remove flow                        │
+└────────┬────────┘                                             │
+         │                                                      │
+         ▼                                                      │
+┌─────────────────┐                                             │
+│ Expense Select  │  PaginatedChoiceDialog                      │
+└────────┬────────┘                                             │
+         │                                                      │
+         ▼                                                      │
+┌─────────────────┐                                             │
+│ Show Current    │  Display current category, description,     │
+│    Values       │  price                                      │
+└────────┬────────┘                                             │
+         │                                                      │
+         ▼                                                      │
+┌─────────────────┐                                             │
+│ Category Choice │  "Keep Current" or select new category      │
+│  (with Help)    │  Shows current category as default          │
+└────────┬────────┘                                             │
+         │                                                      │
+         ▼                                                      │
+┌─────────────────┐                                             │
+│ Description     │  "Keep Current" or "Enter New"              │
+│     Choice      │                                             │
+└────────┬────────┘                                             │
+         │                                                      │
+    ┌────┴────┐                                                 │
+    │         │                                                 │
+    ▼         ▼                                                 │
+Keep      UserInput                                             │
+Current   (new desc)                                            │
+    │         │                                                 │
+    └────┬────┘                                                 │
+         │                                                      │
+         ▼                                                      │
+┌─────────────────┐                                             │
+│   Price Choice  │  "Keep Current" or "Enter New"              │
+└────────┬────────┘                                             │
+         │                                                      │
+    ┌────┴────┐                                                 │
+    │         │                                                 │
+    ▼         ▼                                                 │
+Keep      UserInput                                             │
+Current   (validated)                                           │
+    │         │                                                 │
+    └────┬────┘                                                 │
+         │                                                      │
+         ▼                                                      │
+┌─────────────────┐                                             │
+│ Check Changes   │  If no changes → "No changes made" → exit   │
+└────────┬────────┘                                             │
+         │                                                      │
+         ▼                                                      │
+┌─────────────────┐                                             │
+│ Confirmation    │  Shows old→new for each changed field       │
+│   Dialog        │  "Confirm changes?\n\nCategory: X → Y\n…"   │
+└────────┬────────┘                                             │
+         │                                                      │
+    ┌────┴────┐                                                 │
+    │         │                                                 │
+    ▼         ▼                                                 │
+  Yes        No ────────────────────────────────────────────────┘
+    │              (loops back to start)
+    ▼
 ┌─────────────────┐
-│ Month Selection │  Same as Remove flow
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Expense Select  │  PaginatedChoiceDialog
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ New Category    │  CategoryChoiceWithHelp
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ New Description │  UserInputDialog
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ New Price       │  UserInputDialog (validated)
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  DialogHandler  │  _on_modify_complete callback
-│   (modify)      │  → expense_manager.modify_expense()
+│  DialogHandler  │
+│   (modify)      │
+│                 │
+│  → expense_     │
+│    manager.     │
+│    modify_      │
+│    expense()    │
 └─────────────────┘
 ```
 
+**Flow Details:**
+
+1. **Month Selection**: Same as remove flow (current month or custom MM/YYYY)
+2. **Expense Selection**: Paginated list showing expenses
+3. **Current Values Display**: Shows all current values before modification
+4. **Field-by-Field Modification**:
+   - **Category**: "Keep Current" option + category selection (with Help support)
+   - **Description**: "Keep Current" or "Enter New" (if new, prompts for input)
+   - **Price**: "Keep Current" or "Enter New" (if new, validates positive float)
+5. **Change Detection**: After collecting all values, checks if any changes were made
+6. **Confirmation**: Shows old→new comparison only for changed fields
+7. **Confirmation Actions**:
+   - **"Yes"**: Proceeds with modification → `_on_modify_complete` callback
+   - **"No"**: Returns to start of dialog (allows selecting different expense)
+   - **"Cancel"**: Exits the flow entirely
+
 **Preservation of ID and Timestamp:**
 
-When modifying, the original `id` and `timestamp` are preserved to maintain order and creation time. Only `category`, `description`, and `price` are updated.
+When modifying, the original `id` and `timestamp` are preserved to maintain order and creation time. Only `category`, `description`, and `price` are updated. Users can keep current values for any field by selecting "Keep Current".
 
 ### Export Flow
 
