@@ -42,7 +42,7 @@ class Expense:
         return [
             str(self.id),
             self.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
-            self.category,
+            self.category.capitalize(),
             self.description,
             f"{self.price:.2f}",
         ]

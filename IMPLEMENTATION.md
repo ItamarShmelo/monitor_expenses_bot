@@ -4,12 +4,12 @@ This document describes the internal architecture, design patterns, and code flo
 
 ## Architecture Overview
 
-The bot is built on top of `my_bot_framework` and follows its patterns for commands, dialogs, and messaging.
+The bot is built on top of `my_bot_framework` and follows its patterns for dialogs and messaging. It uses a **keyboard-based interface** with persistent reply keyboards instead of slash commands.
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │                         main.py                                  │
-│              (Entry point, command registration)                 │
+│         (Entry point, keyboard handling, event loop)             │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌──────────────┐    ┌───────────────┐    ┌──────────────────┐   │
@@ -27,7 +27,7 @@ The bot is built on top of `my_bot_framework` and follows its patterns for comma
 │                                                                  │
 ├──────────────────────────────────────────────────────────────────┤
 │                      my_bot_framework                            │
-│         (BotApplication, Dialogs, Commands, Messages)            │
+│         (BotApplication, Dialogs, ReplyKeyboards, Messages)     │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -36,9 +36,9 @@ The bot is built on top of `my_bot_framework` and follows its patterns for comma
 ```
 expense_bot/
 ├── __init__.py           # Package init
-├── main.py               # Bot entry point and command registration
+├── main.py               # Bot entry point and keyboard event handling
 ├── expense_manager.py    # CSV CRUD operations (Expense dataclass, ExpenseManager)
-├── dialogs.py            # Interactive dialog flows for all commands
+├── dialogs.py            # Interactive dialog flows and keyboard helpers
 ├── charts.py             # Pie chart generation with matplotlib
 └── constants.py          # Category definitions and help text
 ```
@@ -112,9 +112,11 @@ data/
 
 Each CSV has columns: `id`, `timestamp`, `category`, `description`, `price`
 
+**Note:** Categories are stored with capital first letter (e.g., "Home", "Transport") via `Expense.to_row()` which calls `category.capitalize()`.
+
 ### 2. Dialog Flows (dialogs.py)
 
-All interactive commands use dialog flows built with the framework's dialog system.
+All interactive features use dialog flows built with the framework's dialog system. Dialogs are triggered by keyboard button presses rather than slash commands.
 
 **Global ExpenseManager Pattern:**
 
@@ -430,33 +432,59 @@ Month      (MM/YYYY)
 2. **Immediate Generation**: Chart is generated and sent immediately after month selection (no confirmation step)
 3. **Completion**: `_on_chart_complete` callback is called (chart already sent, nothing more to do)
 
-## Command Registration
+## Keyboard-Based Interface
 
-Commands are registered in `main.py` using the framework's `DialogCommand` and `SimpleCommand`:
+The bot uses **persistent reply keyboards** instead of slash commands. All interactions are handled through button presses.
+
+### Main Keyboard
+
+The main keyboard has two buttons:
+- **Add** - Starts the add expense dialog
+- **More** - Shows the secondary options menu
+
+### More Menu Keyboard
+
+The More menu keyboard has:
+- **Remove** - Starts remove expense dialog
+- **Modify** - Starts modify expense dialog
+- **Recent** - Shows recent expenses (no dialog)
+- **Export** - Starts export CSV dialog
+- **Chart** - Starts chart generation dialog
+- **Info** - Shows help information
+- **Back** - Returns to main keyboard
+
+### Keyboard Handling
+
+Keyboard buttons are handled in `main.py` via `handle_text_update()`:
 
 ```python
-# Dialog-based commands
-app.register_command(DialogCommand(
-    command="/add",
-    description="Add a new expense",
-    dialog=create_add_expense_dialog(),
-))
+# Main menu buttons
+if text == "Add":
+    await handle_add()  # Starts add expense dialog
+if text == "More":
+    await send_more_keyboard()  # Shows More menu
 
-# Simple commands (no dialog)
-app.register_command(SimpleCommand(
-    command="/recent",
-    description="Show recent expenses",
-    message_builder=get_recent_expenses_message,
-))
+# More menu buttons
+if text == "Remove":
+    await handle_remove()  # Starts remove expense dialog
+# ... etc
 ```
+
+### Remaining Commands
+
+Only two commands remain:
+- `/commands` - Lists available commands (built-in)
+- `/terminate` - Stops the bot gracefully (built-in)
+
+These are handled separately in `handle_text_update()` before keyboard button routing.
 
 ## Data Flow
 
 ### Adding an Expense
 
 ```
-1. User: /add
-2. Bot: Category selection keyboard
+1. User: Presses "Add" button
+2. Bot: Category selection keyboard (inline buttons)
 3. User: Selects "Groceries"
 4. Bot: "Enter a brief description:"
 5. User: "Weekly shopping"
@@ -468,18 +496,21 @@ app.register_command(SimpleCommand(
          description="Weekly shopping",
          price=85.50
        )
-   └─► Appends row to data/2026/02.csv
+   └─► Appends row to data/2026/02.csv (category saved as "Groceries")
    └─► Sends confirmation message
+   └─► Main keyboard is restored
 ```
 
 ### CSV File Format
 
 ```csv
 id,timestamp,category,description,price
-1,2026-02-01 10:30:00,groceries,Weekly shopping,85.50
-2,2026-02-01 14:15:00,dining,Lunch with colleagues,32.00
-3,2026-02-02 09:00:00,transport,Gas,45.00
+1,2026-02-01 10:30:00,Groceries,Weekly shopping,85.50
+2,2026-02-01 14:15:00,Dining,Lunch with colleagues,32.00
+3,2026-02-02 09:00:00,Transport,Gas,45.00
 ```
+
+**Note:** Categories are capitalized (first letter uppercase) when written to CSV via `Expense.to_row()`.
 
 ### ID Generation
 
@@ -503,7 +534,7 @@ def _get_next_id(self, year: int, month: int) -> int:
 
 ### Dialog Cancellation
 
-All dialogs support cancellation via the Cancel button or `/cancel` command:
+All dialogs support cancellation via the Cancel button (inline button in dialogs):
 
 ```python
 if is_cancelled(result):
@@ -524,10 +555,14 @@ if is_cancelled(result):
 2. Initialize ExpenseManager with data/ directory
 3. Call set_expense_manager() to make it globally available
 4. Initialize BotApplication with credentials
-5. Register all commands (add, remove, modify, recent, export, chart, info)
-6. Send startup message
-7. Start polling loop
+5. Send startup message with main keyboard
+6. Start keyboard event loop (polling for updates)
 ```
+
+The keyboard event loop (`run_keyboard_event()`) handles:
+- Text messages (keyboard button presses, commands)
+- Callback queries (stale inline buttons from dialogs)
+- Routes to appropriate handlers based on button text
 
 ## Framework Integration
 
@@ -536,21 +571,25 @@ if is_cancelled(result):
 | Component | Usage |
 |-----------|-------|
 | `BotApplication` | Singleton for bot lifecycle |
-| `DialogCommand` | Multi-step interactive commands |
-| `SimpleCommand` | Single-response commands (/recent, /info) |
-| `ChoiceDialog` | Category selection |
+| `TelegramReplyKeyboardMessage` | Persistent keyboard buttons (main menu, More menu) |
+| `ChoiceDialog` | Category selection (inline buttons) |
 | `ChoiceBranchDialog` | Month selection (current vs custom) |
 | `PaginatedChoiceDialog` | Expense selection (5 per page) |
 | `UserInputDialog` | Text/number input with validation |
 | `ConfirmDialog` | Confirmation prompts |
 | `SequenceDialog` | Chaining dialogs (add flow) |
 | `DialogHandler` | Callback on completion |
+| `Dialog` | Base class for custom dialogs (CategoryChoiceWithHelp, RemoveExpenseDialog, etc.) |
 | `TelegramDocumentMessage` | CSV export |
 | `TelegramImageMessage` | Chart sending |
+| `TelegramCallbackAnswerMessage` | Handle stale callback queries |
+| `TelegramRemoveKeyboardMessage` | Remove stale keyboards |
 | `validate_positive_float` | Price validation |
 | `validate_date_format` | Date format validation |
 | `format_numbered_list` | Recent expenses formatting |
 | `is_cancelled` / `CANCELLED` | Cancellation detection |
+| `poll_updates` | Poll for Telegram updates |
+| `get_stop_event` | Event for graceful shutdown |
 
 ### Custom Dialog: CategoryChoiceWithHelp
 
@@ -610,21 +649,35 @@ class CategoryChoiceWithHelp(Dialog):
    CATEGORY_COLORS["health"] = "#E066FF"
    ```
 
-### Adding a New Command
+### Adding a New Keyboard Button
 
-1. Create dialog factory function in `dialogs.py`
-2. Create completion callback `_on_X_complete`
-3. Register in `main.py`:
+1. Create dialog factory function in `dialogs.py` (if needed)
+2. Create completion callback `_on_X_complete` (if dialog-based)
+3. Add handler function in `main.py`:
    ```python
-   app.register_command(DialogCommand(
-       command="/newcmd",
-       description="Description",
-       dialog=create_new_dialog(),
-   ))
+   async def handle_new_feature() -> None:
+       """Handle the New Feature button press."""
+       dialog = create_new_dialog()
+       await dialog.start({})
+       await send_main_keyboard()
+   ```
+4. Add button text handling in `handle_text_update()`:
+   ```python
+   if text == "New Feature":
+       logger.info("Handling New Feature button")
+       set_next_update_id(update.update_id + 1)
+       await handle_new_feature()
+       return False
+   ```
+5. Add button to keyboard in `dialogs.py`:
+   ```python
+   # In get_main_keyboard_message() or get_more_keyboard_message()
+   keyboard=[["Add", "More", "New Feature"]]
    ```
 
 ### Adding a Report Type
 
 1. Add method to `ExpenseManager` for data aggregation
 2. Create formatting function in `dialogs.py`
-3. Register as `SimpleCommand` or create dialog flow
+3. Add keyboard button handler in `main.py` (similar to `handle_recent()`)
+4. Add button to keyboard layout in `dialogs.py`

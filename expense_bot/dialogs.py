@@ -28,6 +28,7 @@ from my_bot_framework import (
     format_numbered_list,
     TelegramDocumentMessage,
     TelegramImageMessage,
+    TelegramReplyKeyboardMessage,
 )
 
 from .constants import (
@@ -70,19 +71,92 @@ def get_expense_manager() -> ExpenseManager:
 
 
 # =============================================================================
+# KEYBOARD HELPERS
+# =============================================================================
+
+
+def get_main_keyboard_message(
+    text: str = "What would you like to do?",
+) -> TelegramReplyKeyboardMessage:
+    """Return main keyboard message with Add and More buttons.
+
+    Args:
+        text: The message text to display with the keyboard.
+
+    Returns:
+        TelegramReplyKeyboardMessage with main menu options.
+    """
+    return TelegramReplyKeyboardMessage(
+        text=text,
+        keyboard=[["Add", "More"]],
+    )
+
+
+def get_more_keyboard_message() -> TelegramReplyKeyboardMessage:
+    """Return More menu keyboard message with secondary options.
+
+    Returns:
+        TelegramReplyKeyboardMessage with secondary menu options.
+    """
+    return TelegramReplyKeyboardMessage(
+        text="More options:",
+        keyboard=[
+            ["Remove", "Modify"],
+            ["Recent", "Export"],
+            ["Chart", "Info"],
+            ["Back"],
+        ],
+    )
+
+
+def get_info_text() -> str:
+    """Return the bot info/help text.
+
+    Returns:
+        HTML-formatted info text.
+    """
+    return (
+        "<b>Expense Monitoring Bot</b>\n\n"
+        "Track your group expenses with ease!\n\n"
+        "<b>Options:</b>\n"
+        "Add - Add a new expense\n"
+        "More - Show more options\n\n"
+        "<b>More Options:</b>\n"
+        "Remove - Remove an expense\n"
+        "Modify - Modify an existing expense\n"
+        "Recent - Show recent expenses\n"
+        "Export - Export expenses as CSV\n"
+        "Chart - Generate expense pie chart\n"
+        "Info - Show this help\n"
+        "Back - Return to main menu"
+    )
+
+
+# =============================================================================
 # ADD EXPENSE FLOW
 # =============================================================================
 
 
 def _is_valid_category(result: Any) -> bool:
-    """Check if result is a valid category (not 'help' or cancelled)."""
+    """Check if result is a valid category (not 'help' or cancelled).
+    
+    Args:
+        result: The result to validate.
+        
+    Returns:
+        True if valid category or cancelled, False otherwise.
+    """
     if is_cancelled(result):
         return True  # Exit loop on cancel
     return result in VALID_CATEGORIES
 
 
 async def _on_add_complete(result: DialogResult) -> None:
-    """Handle completion of add expense dialog."""
+    """Handle completion of add expense dialog.
+    
+    Args:
+        result: The dialog result containing expense data.
+    """
     if is_cancelled(result):
         await get_app().send_messages("Expense entry cancelled.")
         return
@@ -252,7 +326,11 @@ def _parse_expense_callback(callback: str) -> tuple[int, int, int]:
 
 
 async def _on_remove_complete(result: DialogResult) -> None:
-    """Handle completion of remove expense dialog."""
+    """Handle completion of remove expense dialog.
+    
+    Args:
+        result: The dialog result containing expense selection.
+    """
     if is_cancelled(result):
         await get_app().send_messages("Remove cancelled.")
         return
@@ -433,7 +511,11 @@ def create_remove_expense_dialog() -> Dialog:
 
 
 async def _on_modify_complete(result: DialogResult) -> None:
-    """Handle completion of modify expense dialog."""
+    """Handle completion of modify expense dialog.
+    
+    Args:
+        result: The dialog result containing modified expense data.
+    """
     if is_cancelled(result):
         await get_app().send_messages("Modify cancelled.")
         return
@@ -768,7 +850,11 @@ def create_modify_expense_dialog() -> Dialog:
 
 
 async def _on_export_complete(result: DialogResult) -> None:
-    """Handle completion of export dialog."""
+    """Handle completion of export dialog.
+    
+    Args:
+        result: The dialog result containing month selection.
+    """
     if is_cancelled(result):
         await get_app().send_messages("Export cancelled.")
         return
@@ -955,7 +1041,11 @@ class ChartDialog(Dialog):
 
 
 async def _on_chart_complete(result: DialogResult) -> None:
-    """Handle completion of chart dialog."""
+    """Handle completion of chart dialog.
+    
+    Args:
+        result: The dialog result containing month selection.
+    """
     if is_cancelled(result):
         await get_app().send_messages("Chart cancelled.")
         return

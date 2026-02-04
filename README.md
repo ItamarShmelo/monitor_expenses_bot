@@ -70,31 +70,43 @@ Or directly:
 python expense_bot/main.py
 ```
 
-The bot will send a startup message when it begins running. Type `/info` for help or `/commands` to see all available commands.
+The bot will send a startup message with a persistent keyboard when it begins running. Use the keyboard buttons to interact with the bot.
 
-## Commands
+## Interface
 
-| Command | Description |
-|---------|-------------|
-| `/add` | Add a new expense. Interactive flow: select category → enter description → enter price |
-| `/remove` | Remove an expense. Choose from current month or enter a different month (MM/YYYY), then select from paginated list, then confirm removal |
-| `/modify` | Modify an existing expense. Select expense, see current values, choose to keep or change each field, then confirm changes with old→new comparison |
-| `/recent` | Show the 10 most recent expenses across all months, sorted by date |
-| `/export` | Download expenses as CSV file. Choose previous month or enter custom month (MM/YYYY) |
-| `/chart` | Generate a pie chart of expenses by category. Choose previous month or enter custom month (MM/YYYY) |
-| `/info` | Show bot information and command list |
-| `/commands` | List all available commands (built-in) |
-| `/terminate` | Stop the bot gracefully (built-in) |
+The bot uses a **keyboard-based interface** with persistent buttons:
+
+### Main Menu
+
+- **Add** - Start the add expense dialog (category → description → price)
+- **More** - Show secondary options menu
+
+### More Menu
+
+- **Remove** - Remove an expense (select month → select expense → confirm)
+- **Modify** - Modify an existing expense (select month → select expense → edit fields → confirm)
+- **Recent** - Show the 10 most recent expenses across all months
+- **Export** - Download expenses as CSV file (choose previous month or enter custom MM/YYYY)
+- **Chart** - Generate a pie chart of expenses by category (choose previous month or enter custom MM/YYYY)
+- **Info** - Show bot information and help
+- **Back** - Return to main menu
+
+### Commands
+
+Only two commands remain available:
+
+- `/commands` - List available commands (built-in)
+- `/terminate` - Stop the bot gracefully (built-in)
 
 ## Interactive Dialogs
 
-Most commands use interactive dialogs that guide you through the process:
+Most features use interactive dialogs that guide you through the process:
 
-- **Category Selection**: When adding or modifying expenses, you'll see buttons for each category. Select "Help" to see detailed descriptions of what each category includes.
+- **Category Selection**: When adding or modifying expenses, you'll see inline buttons for each category. Select "Help" to see detailed descriptions of what each category includes.
 
-- **Month Selection**: For `/remove`, `/modify`, `/export`, and `/chart`, you can:
-  - Choose "Current Month" for the current month
-  - Choose "Different Month" and enter a date in `MM/YYYY` format (e.g., `02/2026`)
+- **Month Selection**: For Remove, Modify, Export, and Chart features, you can:
+  - Choose "Current Month" (or "Previous Month" for Export/Chart) for quick access
+  - Choose "Different Month" (or "Provide Month") and enter a date in `MM/YYYY` format (e.g., `02/2026`)
 
 - **Expense Selection**: When removing or modifying, expenses are shown in a paginated list (5 per page) with:
   - Category name in brackets
@@ -111,7 +123,7 @@ Most commands use interactive dialogs that guide you through the process:
 
 - **Confirmation**: When removing an expense, you'll be asked to confirm before the expense is deleted.
 
-- **Cancellation**: All dialogs support cancellation. Use the "Cancel" button or type `/cancel` to exit at any point.
+- **Cancellation**: All dialogs support cancellation. Use the "Cancel" button to exit at any point.
 
 - **Input Validation**: 
   - Prices must be positive numbers (e.g., `25.50`, `100`)
@@ -137,11 +149,11 @@ data/
 Each CSV file has the following columns:
 - `id` - Unique identifier within the month (auto-incremented)
 - `timestamp` - When the expense was recorded (format: `YYYY-MM-DD HH:MM:SS`)
-- `category` - Category key (`home`, `transport`, `groceries`, `dining`, `other`)
+- `category` - Category name with capital first letter (`Home`, `Transport`, `Groceries`, `Dining`, `Other`)
 - `description` - Brief description of the expense
 - `price` - Amount in dollars (stored with 2 decimal places)
 
-**Note:** When modifying expenses, the `id` and `timestamp` are preserved to maintain the original order and creation time. You can keep current values for any field by selecting "Keep Current" during modification.
+**Note:** When modifying expenses, the `id` and `timestamp` are preserved to maintain the original order and creation time. You can keep current values for any field by selecting "Keep Current" during modification. Categories are stored with capital first letter in CSV files (e.g., "Home" instead of "home").
 
 ## Project Structure
 
