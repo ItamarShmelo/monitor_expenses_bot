@@ -32,6 +32,7 @@ from my_bot_framework import (
 
 from .constants import CATEGORIES, CATEGORY_HELP, CATEGORY_NAMES, VALID_CATEGORIES
 from .expense_manager import Expense, ExpenseManager
+from .charts import generate_expense_chart
 
 
 # Global expense manager instance (set in main.py)
@@ -121,8 +122,8 @@ async def _on_add_complete(result: DialogResult) -> None:
         f"Expense added:\n"
         f"Category: {category_name}\n"
         f"Description: {expense.description}\n"
-        f"Price: ${expense.price:.2f}\n"
-        f"Date: {expense.timestamp.strftime('%Y-%m-%d %H:%M')}"
+        f"Price: ₪{expense.price:.2f}\n"
+        f"Date: {expense.timestamp.strftime('%d/%m/%Y %H:%M')}"
     )
 
 
@@ -222,7 +223,7 @@ def _get_expense_choices(
         category_name = CATEGORY_NAMES.get(expense.category, expense.category)
         label = (
             f"[{category_name}] {expense.description} - "
-            f"${expense.price:.2f} ({expense.timestamp.strftime('%m/%d')})"
+            f"₪{expense.price:.2f} ({expense.timestamp.strftime('%d/%m')})"
         )
         # Store year, month, and id in callback data
         callback = f"{expense.year}:{expense.month}:{expense.id}"
@@ -447,7 +448,7 @@ async def _on_modify_complete(result: DialogResult) -> None:
             f"Expense modified:\n"
             f"Category: {category_name}\n"
             f"Description: {modified.description}\n"
-            f"Price: ${modified.price:.2f}"
+            f"Price: ₪{modified.price:.2f}"
         )
     else:
         await get_app().send_messages("Expense not found.")
@@ -695,9 +696,6 @@ async def _on_chart_complete(result: DialogResult) -> None:
         await get_app().send_messages("Unexpected error.")
         return
 
-    # Import charts module here to avoid circular imports
-    from .charts import generate_expense_chart
-
     manager = get_expense_manager()
     expenses_by_category = manager.get_expenses_by_category(year, month)
 
@@ -760,7 +758,7 @@ async def get_recent_expenses_message() -> str:
         category_name = CATEGORY_NAMES.get(expense.category, expense.category)
         line = (
             f"[{category_name}] {expense.description} - "
-            f"${expense.price:.2f} ({expense.timestamp.strftime('%m/%d/%Y')})"
+            f"₪{expense.price:.2f} ({expense.timestamp.strftime('%d/%m/%Y')})"
         )
         lines.append(line)
 

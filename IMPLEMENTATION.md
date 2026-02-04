@@ -237,7 +237,7 @@ Month      (MM/YYYY)
          ▼
 ┌─────────────────┐
 │ PaginatedChoice │  5 expenses per page, newest first
-│    Dialog       │  [Category] Description - $X.XX (MM/DD)
+│    Dialog       │  [Category] Description - ₪X.XX (DD/MM)
 └────────┬────────┘
          │
          ▼

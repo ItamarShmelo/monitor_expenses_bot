@@ -100,7 +100,7 @@ Most commands use interactive dialogs that guide you through the process:
   - Category name in brackets
   - Description
   - Price
-  - Date (MM/DD format)
+  - Date (DD/MM format)
 
 - **Cancellation**: All dialogs support cancellation. Use the "Cancel" button or type `/cancel` to exit at any point.
 

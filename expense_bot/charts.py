@@ -22,6 +22,17 @@ CATEGORY_COLORS: dict[str, str] = {
     "other": "#FFEAA7",      # Yellow
 }
 
+# Chart configuration constants
+CHART_FIGURE_WIDTH = 10
+CHART_FIGURE_HEIGHT = 8
+MIN_PERCENTAGE_FOR_LABEL = 5.0  # Only show percentage if >= 5%
+PIE_EXPLODE_VALUE = 0.02  # Slight separation between pie slices
+PERCENTAGE_TEXT_FONTSIZE = 10
+LEGEND_FONTSIZE = 10
+TITLE_FONTSIZE = 14
+SUBTITLE_FONTSIZE = 8
+CHART_DPI = 150  # Resolution for saved image
+
 
 def generate_expense_chart(
     expenses_by_category: dict[str, float],
@@ -49,32 +60,32 @@ def generate_expense_chart(
         reverse=True,
     ):
         category_name = CATEGORY_NAMES.get(category, category.title())
-        categories.append(f"{category_name}\n${amount:.2f}")
+        categories.append(f"{category_name}\n₪{amount:.2f}")
         amounts.append(amount)
         colors.append(CATEGORY_COLORS.get(category, "#CCCCCC"))
 
     # Create figure
-    fig, ax = plt.subplots(figsize=(10, 8))
+    fig, ax = plt.subplots(figsize=(CHART_FIGURE_WIDTH, CHART_FIGURE_HEIGHT))
 
     # Create pie chart
     wedges, texts, autotexts = ax.pie(
         amounts,
         labels=None,  # We'll use legend instead
-        autopct=lambda pct: f"{pct:.1f}%" if pct > 5 else "",
+        autopct=lambda pct: f"{pct:.1f}%" if pct >= MIN_PERCENTAGE_FOR_LABEL else "",
         colors=colors,
         startangle=90,
-        explode=[0.02] * len(amounts),  # Slight separation
+        explode=[PIE_EXPLODE_VALUE] * len(amounts),  # Slight separation
     )
 
     # Style the percentage text
     for autotext in autotexts:
         autotext.set_color("white")
         autotext.set_fontweight("bold")
-        autotext.set_fontsize(10)
+        autotext.set_fontsize(PERCENTAGE_TEXT_FONTSIZE)
 
     # Add legend
     legend_labels = [
-        f"{CATEGORY_NAMES.get(cat, cat.title())}: ${amt:.2f}"
+        f"{CATEGORY_NAMES.get(cat, cat.title())}: ₪{amt:.2f}"
         for cat, amt in sorted(
             expenses_by_category.items(),
             key=lambda x: x[1],
@@ -87,7 +98,7 @@ def generate_expense_chart(
         title="Categories",
         loc="center left",
         bbox_to_anchor=(1, 0, 0.5, 1),
-        fontsize=10,
+        fontsize=LEGEND_FONTSIZE,
     )
 
     # Title
@@ -95,19 +106,19 @@ def generate_expense_chart(
     total = sum(amounts)
     ax.set_title(
         f"Expenses for {month_name} {year}\n"
-        f"Total: ${total:.2f}",
-        fontsize=14,
+        f"Total: ₪{total:.2f}",
+        fontsize=TITLE_FONTSIZE,
         fontweight="bold",
     )
 
     # Add generation date as subtitle
-    generated_date = datetime.now().strftime("%Y-%m-%d %H:%M")
+    generated_date = datetime.now().strftime("%d/%m/%Y %H:%M")
     fig.text(
         0.5,
         0.02,
         f"Generated on {generated_date}",
         ha="center",
-        fontsize=8,
+        fontsize=SUBTITLE_FONTSIZE,
         style="italic",
         color="gray",
     )
@@ -124,7 +135,7 @@ def generate_expense_chart(
     chart_path = Path(temp_file.name)
     temp_file.close()
 
-    fig.savefig(chart_path, dpi=150, bbox_inches="tight", facecolor="white")
+    fig.savefig(chart_path, dpi=CHART_DPI, bbox_inches="tight", facecolor="white")
     plt.close(fig)
 
     return chart_path
