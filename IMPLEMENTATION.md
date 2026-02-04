@@ -424,6 +424,12 @@ Month      (MM/YYYY)
 └─────────────────┘
 ```
 
+**Flow Details:**
+
+1. **Month Selection**: User selects "Previous Month" or "Provide Month" (enters MM/YYYY)
+2. **Immediate Generation**: Chart is generated and sent immediately after month selection (no confirmation step)
+3. **Completion**: `_on_chart_complete` callback is called (chart already sent, nothing more to do)
+
 ## Command Registration
 
 Commands are registered in `main.py` using the framework's `DialogCommand` and `SimpleCommand`:

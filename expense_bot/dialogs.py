@@ -838,40 +838,13 @@ def create_export_dialog() -> Dialog:
 # =============================================================================
 
 
-async def _on_chart_complete(result: DialogResult) -> None:
-    """Handle completion of chart dialog."""
-    if is_cancelled(result):
-        await get_app().send_messages("Chart cancelled.")
-        return
+async def _generate_and_send_chart(year: int, month: int) -> None:
+    """Generate and send a chart for the specified month.
 
-    if not isinstance(result, dict):
-        await get_app().send_messages("Unexpected error. Please try again.")
-        return
-
-    now = datetime.now()
-
-    # Determine year and month from result
-    if "previous" in result:
-        # Previous month
-        if now.month == 1:
-            year, month = now.year - 1, 12
-        else:
-            year, month = now.year, now.month - 1
-    elif "custom" in result:
-        date_str = result["custom"]
-        if is_cancelled(date_str):
-            await get_app().send_messages("Chart cancelled.")
-            return
-        try:
-            parsed = datetime.strptime(date_str, "%m/%Y")
-            year, month = parsed.year, parsed.month
-        except (ValueError, TypeError):
-            await get_app().send_messages("Invalid date format.")
-            return
-    else:
-        await get_app().send_messages("Unexpected error.")
-        return
-
+    Args:
+        year: The year.
+        month: The month.
+    """
     manager = get_expense_manager()
     expenses_by_category = manager.get_expenses_by_category(year, month)
 
@@ -889,6 +862,101 @@ async def _on_chart_complete(result: DialogResult) -> None:
     )
 
 
+class ChartDialog(Dialog):
+    """Dialog for generating expense charts.
+
+    Flow: Month selection -> Chart generation (no confirmation).
+    Allows selecting expenses from the previous month or a custom month.
+    Chart is generated and sent immediately after month selection.
+    """
+
+    def __init__(self) -> None:
+        """Initialize the chart dialog."""
+        super().__init__()
+
+    async def _run_dialog(self) -> DialogResult:
+        """Run the chart generation flow.
+
+        Returns:
+            Dict with month selection or cancellation result.
+        """
+        now = datetime.now()
+
+        # Ask which month
+        month_choice = ChoiceDialog(
+            prompt="Generate chart for which month?",
+            choices=[
+                ("Previous Month", "previous"),
+                ("Provide Month", "custom"),
+            ],
+            include_cancel=True,
+        )
+
+        month_result = await month_choice.start(self.context)
+
+        if is_cancelled(month_result):
+            self._value = month_result
+            return month_result
+
+        # Determine year and month
+        if month_result == "previous":
+            if now.month == 1:
+                year, month = now.year - 1, 12
+            else:
+                year, month = now.year, now.month - 1
+        elif month_result == "custom":
+            date_dialog = UserInputDialog(
+                "Enter month (MM/YYYY):",
+                validator=validate_date_format("%m/%Y", "MM/YYYY"),
+                include_cancel=True,
+            )
+            date_result = await date_dialog.start(self.context)
+            if is_cancelled(date_result):
+                self._value = date_result
+                return date_result
+            if not isinstance(date_result, str):
+                await get_app().send_messages("Invalid date format.")
+                self._value = None
+                return None
+            try:
+                parsed = datetime.strptime(date_result, "%m/%Y")
+                year, month = parsed.year, parsed.month
+            except (ValueError, TypeError):
+                await get_app().send_messages("Invalid date format.")
+                self._value = None
+                return None
+        else:
+            self._value = None
+            return None
+
+        # Generate and send chart immediately (no confirmation)
+        await _generate_and_send_chart(year, month)
+
+        self._value = {"year": year, "month": month}
+        return self._value
+
+    def build_result(self) -> DialogResult:
+        """Return the dialog result."""
+        return self._value
+
+    def handle_callback(self, callback_data: str) -> None:
+        """Handle callback - child dialogs handle their own callbacks."""
+        pass
+
+    def handle_text_input(self, text: str) -> None:
+        """Handle text input - child dialogs handle their own text input."""
+        pass
+
+
+async def _on_chart_complete(result: DialogResult) -> None:
+    """Handle completion of chart dialog."""
+    if is_cancelled(result):
+        await get_app().send_messages("Chart cancelled.")
+        return
+
+    # Chart was already generated in the dialog, nothing more to do
+
+
 def create_chart_dialog() -> Dialog:
     """Create the chart generation dialog flow.
 
@@ -896,18 +964,7 @@ def create_chart_dialog() -> Dialog:
         Dialog for generating expense charts.
     """
     return DialogHandler(
-        ChoiceBranchDialog(
-            prompt="Generate chart for which month?",
-            branches={
-                "previous": ("Previous Month", ConfirmDialog("Generate?", include_cancel=True)),
-                "custom": ("Provide Month", UserInputDialog(
-                    "Enter month (MM/YYYY):",
-                    validator=validate_date_format("%m/%Y", "MM/YYYY"),
-                    include_cancel=True,
-                )),
-            },
-            include_cancel=True,
-        ),
+        ChartDialog(),
         on_complete=_on_chart_complete,
     )
 
