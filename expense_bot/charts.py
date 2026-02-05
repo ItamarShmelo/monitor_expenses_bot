@@ -59,10 +59,12 @@ def generate_expense_chart(
         key=lambda x: x[1],
         reverse=True,
     ):
-        category_name = CATEGORY_NAMES.get(category, category.title())
+        # Normalize category key to lowercase for color/name lookup
+        category_key = category.lower()
+        category_name = CATEGORY_NAMES.get(category_key, category.title())
         categories.append(f"{category_name}\n₪{amount:.2f}")
         amounts.append(amount)
-        colors.append(CATEGORY_COLORS.get(category, "#CCCCCC"))
+        colors.append(CATEGORY_COLORS.get(category_key, "#CCCCCC"))
 
     # Create figure
     fig, ax = plt.subplots(figsize=(CHART_FIGURE_WIDTH, CHART_FIGURE_HEIGHT))
@@ -85,7 +87,7 @@ def generate_expense_chart(
 
     # Add legend
     legend_labels = [
-        f"{CATEGORY_NAMES.get(cat, cat.title())}: ₪{amt:.2f}"
+        f"{CATEGORY_NAMES.get(cat.lower(), cat.title())}: ₪{amt:.2f}"
         for cat, amt in sorted(
             expenses_by_category.items(),
             key=lambda x: x[1],
