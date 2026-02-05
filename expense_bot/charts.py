@@ -31,7 +31,7 @@ PERCENTAGE_TEXT_FONTSIZE = 20
 LEGEND_FONTSIZE = 20
 TITLE_FONTSIZE = 24
 SUBTITLE_FONTSIZE = 8
-CHART_DPI = 600  # Resolution for saved image
+CHART_DPI = 150  # Resolution for saved image (Telegram requires width+height < 10000)
 
 
 def generate_expense_chart(
