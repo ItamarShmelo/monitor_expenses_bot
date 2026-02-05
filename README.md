@@ -155,6 +155,15 @@ Each CSV file has the following columns:
 
 **Note:** When modifying expenses, the `id` and `timestamp` are preserved to maintain the original order and creation time. You can keep current values for any field by selecting "Keep Current" during modification. Categories are stored with capital first letter in CSV files (e.g., "Home" instead of "home").
 
+## Logging
+
+The bot logs all activity to `expense_bot.log` in the project root directory. Logs are written in append mode, so previous log entries are preserved when the bot restarts. The log file includes timestamps, log levels, and detailed information about bot operations, errors, and user interactions.
+
+To view logs in real-time:
+```bash
+tail -f expense_bot.log
+```
+
 ## Project Structure
 
 ```
@@ -170,6 +179,7 @@ monitor_expenses_bot/
 ├── my_bot_framework/     # Bot framework (submodule)
 ├── .token               # Bot token (git-ignored)
 ├── .chat_id             # Chat ID (git-ignored)
+├── expense_bot.log      # Bot logs (git-ignored)
 ├── pyproject.toml       # Project dependencies
 └── README.md            # This file
 ```

@@ -51,5 +51,8 @@ Thumbs.db
 /tmp/
 *.tmp
 
+# Log files
+expense_bot.log
+
 # uv
 .uv/

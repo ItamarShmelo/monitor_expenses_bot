@@ -556,13 +556,22 @@ if is_cancelled(result):
 ## Startup Flow
 
 ```
-1. Read credentials from .token and .chat_id files
-2. Initialize ExpenseManager with data/ directory
-3. Call set_expense_manager() to make it globally available
-4. Initialize BotApplication with credentials
-5. Send startup message with main keyboard
-6. Start keyboard event loop (polling for updates)
+1. Configure logging to expense_bot.log (append mode, INFO level)
+2. Read credentials from .token and .chat_id files
+3. Initialize ExpenseManager with data/ directory
+4. Call set_expense_manager() to make it globally available
+5. Initialize BotApplication with credentials
+6. Send startup message with main keyboard
+7. Start keyboard event loop (polling for updates)
 ```
+
+**Logging Configuration:**
+
+Logging is configured in `main()` using `logging.basicConfig()`:
+- **Output**: `expense_bot.log` in project root (not console)
+- **Mode**: Append (`filemode="a"`) - preserves previous logs
+- **Level**: INFO
+- **Format**: `%(asctime)s %(levelname)s %(name)s: %(message)s`
 
 The keyboard event loop (`run_keyboard_event()`) handles:
 - Text messages (keyboard button presses, commands)

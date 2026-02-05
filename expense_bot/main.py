@@ -325,13 +325,24 @@ async def run_bot(logger: logging.Logger) -> None:
 
 
 def main() -> None:
-    """Initialize and run the expense monitoring bot."""
-    # Setup logging
+    """Initialize and run the expense monitoring bot.
+    
+    Sets up file logging, loads credentials, initializes the expense manager,
+    and starts the bot application. Exits with code 1 if credentials are missing
+    or invalid.
+    """
+    # Setup logging to file
+    project_root = Path(__file__).resolve().parent.parent
+    log_file = project_root / "expense_bot.log"
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        filename=str(log_file),
+        filemode="a",
     )
     logger = logging.getLogger("expense_bot")
+    logger.info("Logging to file: %s", log_file)
 
     # Get credentials
     try:
@@ -341,7 +352,6 @@ def main() -> None:
         sys.exit(1)
 
     # Initialize expense manager
-    project_root = Path(__file__).resolve().parent.parent
     data_dir = project_root / "data"
     expense_manager = ExpenseManager(data_dir)
     set_expense_manager(expense_manager)
