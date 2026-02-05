@@ -16,22 +16,22 @@ from .constants import CATEGORY_NAMES
 # Color palette for categories
 CATEGORY_COLORS: dict[str, str] = {
     "home": "#FF6B6B",       # Red
-    "transport": "#4ECDC4",  # Teal
-    "groceries": "#45B7D1",  # Blue
-    "dining": "#96CEB4",     # Green
-    "other": "#FFEAA7",      # Yellow
+    "transport": "#3498DB",  # Blue
+    "groceries": "#E67E22",  # Orange
+    "dining": "#27AE60",     # Emerald Green
+    "other": "#9B59B6",      # Purple
 }
 
 # Chart configuration constants
-CHART_FIGURE_WIDTH = 10
-CHART_FIGURE_HEIGHT = 8
+CHART_FIGURE_WIDTH = 12
+CHART_FIGURE_HEIGHT = 10
 MIN_PERCENTAGE_FOR_LABEL = 5.0  # Only show percentage if >= 5%
 PIE_EXPLODE_VALUE = 0.02  # Slight separation between pie slices
-PERCENTAGE_TEXT_FONTSIZE = 10
-LEGEND_FONTSIZE = 10
-TITLE_FONTSIZE = 14
+PERCENTAGE_TEXT_FONTSIZE = 20
+LEGEND_FONTSIZE = 20
+TITLE_FONTSIZE = 24
 SUBTITLE_FONTSIZE = 8
-CHART_DPI = 150  # Resolution for saved image
+CHART_DPI = 600  # Resolution for saved image
 
 
 def generate_expense_chart(
@@ -66,14 +66,33 @@ def generate_expense_chart(
         amounts.append(amount)
         colors.append(CATEGORY_COLORS.get(category_key, "#CCCCCC"))
 
-    # Create figure
+    # Create figure with room for table on the right
     fig, ax = plt.subplots(figsize=(CHART_FIGURE_WIDTH, CHART_FIGURE_HEIGHT))
+    fig.subplots_adjust(left=0.02, right=0.7, top=0.92, bottom=0.05)
+
+    # Create autopct function that shows both percentage and value
+    total = sum(amounts)
+
+    def make_autopct(pct: float) -> str:
+        """Generate label with percentage and value for pie slices.
+        
+        Args:
+            pct: Percentage value (0-100) for the pie slice.
+            
+        Returns:
+            Formatted string with percentage and value if >= MIN_PERCENTAGE_FOR_LABEL,
+            empty string otherwise.
+        """
+        if pct >= MIN_PERCENTAGE_FOR_LABEL:
+            val = pct * total / 100.0
+            return f"{pct:.0f}%\n₪{val:.0f}"
+        return ""
 
     # Create pie chart
     wedges, texts, autotexts = ax.pie(
         amounts,
         labels=None,  # We'll use legend instead
-        autopct=lambda pct: f"{pct:.1f}%" if pct >= MIN_PERCENTAGE_FOR_LABEL else "",
+        autopct=make_autopct,
         colors=colors,
         startangle=90,
         explode=[PIE_EXPLODE_VALUE] * len(amounts),  # Slight separation
@@ -84,31 +103,54 @@ def generate_expense_chart(
         autotext.set_color("white")
         autotext.set_fontweight("bold")
         autotext.set_fontsize(PERCENTAGE_TEXT_FONTSIZE)
+        autotext.set_horizontalalignment("center")
 
-    # Add legend
-    legend_labels = [
-        f"{CATEGORY_NAMES.get(cat.lower(), cat.title())}: ₪{amt:.2f}"
+    # Add legend as a table on separate axes
+    table_data = [
+        [CATEGORY_NAMES.get(cat.lower(), cat.title()), f"₪{amt:.0f}"]
         for cat, amt in sorted(
             expenses_by_category.items(),
             key=lambda x: x[1],
             reverse=True,
         )
     ]
-    ax.legend(
-        wedges,
-        legend_labels,
-        title="Categories",
-        loc="center left",
-        bbox_to_anchor=(1, 0, 0.5, 1),
-        fontsize=LEGEND_FONTSIZE,
+
+    # Create separate axes for table
+    table_ax = fig.add_axes([0.68, 0.25, 0.26, 0.55])
+    table_ax.axis("off")
+
+    # Prepare colors for each row
+    sorted_categories = sorted(
+        expenses_by_category.items(),
+        key=lambda x: x[1],
+        reverse=True,
     )
+    cell_colors = [
+        [CATEGORY_COLORS.get(cat.lower(), "#CCCCCC")] * 2
+        for cat, _ in sorted_categories
+    ]
+
+    table = table_ax.table(
+        cellText=table_data,
+        cellColours=cell_colors,
+        cellLoc="left",
+        loc="center",
+    )
+    table.auto_set_font_size(False)
+    table.set_fontsize(LEGEND_FONTSIZE)
+    table.auto_set_column_width([0, 1])
+    table.scale(1.2, 2.5)  # Increased row height for more padding
+
+    # Style text in all cells
+    for key, cell in table.get_celld().items():
+        cell.set_text_props(color="white", fontweight="bold")
 
     # Title
     month_name = datetime(year, month, 1).strftime("%B")
     total = sum(amounts)
     ax.set_title(
         f"Expenses for {month_name} {year}\n"
-        f"Total: ₪{total:.2f}",
+        f"Total: ₪{total:.0f}",
         fontsize=TITLE_FONTSIZE,
         fontweight="bold",
     )
@@ -117,7 +159,7 @@ def generate_expense_chart(
     generated_date = datetime.now().strftime("%d/%m/%Y %H:%M")
     fig.text(
         0.5,
-        0.02,
+        0.01,
         f"Generated on {generated_date}",
         ha="center",
         fontsize=SUBTITLE_FONTSIZE,
@@ -125,8 +167,7 @@ def generate_expense_chart(
         color="gray",
     )
 
-    # Adjust layout
-    plt.tight_layout()
+    # Layout is manually adjusted via subplots_adjust
 
     # Save to temp file
     temp_file = tempfile.NamedTemporaryFile(
@@ -137,7 +178,7 @@ def generate_expense_chart(
     chart_path = Path(temp_file.name)
     temp_file.close()
 
-    fig.savefig(chart_path, dpi=CHART_DPI, bbox_inches="tight", facecolor="white")
+    fig.savefig(chart_path, dpi=CHART_DPI, facecolor="white")
     plt.close(fig)
 
     return chart_path
