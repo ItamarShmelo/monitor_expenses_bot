@@ -122,8 +122,8 @@ The bot uses a **keyboard-based interface** with persistent buttons:
 - **Remove** - Remove an expense (select month → select expense → confirm)
 - **Modify** - Modify an existing expense (select month → select expense → edit fields → confirm)
 - **Recent** - Show the 10 most recent expenses across all months
-- **Export** - Download expenses as CSV file (choose previous month or enter custom MM/YYYY)
-- **Chart** - Generate a pie chart of expenses by category (choose previous month or enter custom MM/YYYY)
+- **Export** - Download expenses as CSV file (choose current month, previous month, or enter custom MM/YYYY)
+- **Chart** - Generate a pie chart of expenses by category (choose current month, previous month, or enter custom MM/YYYY)
 - **Info** - Show bot information and help
 - **Back** - Return to main menu
 
@@ -141,7 +141,8 @@ Most features use interactive dialogs that guide you through the process:
 - **Category Selection**: When adding or modifying expenses, you'll see inline buttons for each category. Select "Help" to see detailed descriptions of what each category includes.
 
 - **Month Selection**: For Remove, Modify, Export, and Chart features, you can:
-  - Choose "Current Month" (or "Previous Month" for Export/Chart) for quick access
+  - Choose "Current Month" for quick access to the current month
+  - Choose "Previous Month" (for Export/Chart) for quick access to the previous month
   - Choose "Different Month" (or "Provide Month") and enter a date in `MM/YYYY` format (e.g., `02/2026`)
 
 - **Expense Selection**: When removing or modifying, expenses are shown in a paginated list (5 per page) with:

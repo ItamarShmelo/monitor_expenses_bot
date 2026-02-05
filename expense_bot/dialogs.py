@@ -223,7 +223,7 @@ class CategoryChoiceWithHelp(Dialog):
         import logging
         logger = logging.getLogger("expense_bot.dialogs")
         logger.info("CategoryChoiceWithHelp._run_dialog STARTED")
-        
+
         iteration = 0
         while True:
             iteration += 1
@@ -231,13 +231,13 @@ class CategoryChoiceWithHelp(Dialog):
                 "CategoryChoiceWithHelp: starting iteration %d, creating ReplyKeyboardChoiceDialog",
                 iteration,
             )
-            
+
             self._choice_dialog = ReplyKeyboardChoiceDialog(
                 prompt="Select expense category:",
                 choices=CATEGORIES,
                 include_cancel=True,
             )
-            
+
             logger.info(
                 "CategoryChoiceWithHelp: calling _choice_dialog.start(), categories=%s",
                 CATEGORIES,
@@ -267,7 +267,7 @@ class CategoryChoiceWithHelp(Dialog):
                 )
                 self._value = result
                 return result
-            
+
             logger.warning(
                 "CategoryChoiceWithHelp: result %r not in VALID_CATEGORIES %s, looping again",
                 result,
@@ -899,7 +899,10 @@ async def _on_export_complete(result: DialogResult) -> None:
     now = datetime.now()
 
     # Determine year and month from result
-    if "previous" in result:
+    if "current" in result:
+        # Current month
+        year, month = now.year, now.month
+    elif "previous" in result:
         # Previous month
         if now.month == 1:
             year, month = now.year - 1, 12
@@ -945,6 +948,7 @@ def create_export_dialog() -> Dialog:
         ReplyKeyboardChoiceBranchDialog(
             prompt="Export expenses for which month?",
             branches={
+                "current": ("Current Month", ReplyKeyboardConfirmDialog("Export?", include_cancel=True)),
                 "previous": ("Previous Month", ReplyKeyboardConfirmDialog("Export?", include_cancel=True)),
                 "custom": ("Provide Month", UserInputDialog(
                     "Enter month (MM/YYYY):",
@@ -991,7 +995,7 @@ class ChartDialog(Dialog):
     """Dialog for generating expense charts.
 
     Flow: Month selection -> Chart generation (no confirmation).
-    Allows selecting expenses from the previous month or a custom month.
+    Allows selecting expenses from the current month, previous month, or a custom month.
     Chart is generated and sent immediately after month selection.
     """
 
@@ -1011,6 +1015,7 @@ class ChartDialog(Dialog):
         month_choice = ReplyKeyboardChoiceDialog(
             prompt="Generate chart for which month?",
             choices=[
+                ("Current Month", "current"),
                 ("Previous Month", "previous"),
                 ("Provide Month", "custom"),
             ],
@@ -1024,7 +1029,9 @@ class ChartDialog(Dialog):
             return month_result
 
         # Determine year and month
-        if month_result == "previous":
+        if month_result == "current":
+            year, month = now.year, now.month
+        elif month_result == "previous":
             if now.month == 1:
                 year, month = now.year - 1, 12
             else:

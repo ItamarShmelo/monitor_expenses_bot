@@ -387,20 +387,22 @@ When modifying, the original `id` and `timestamp` are preserved to maintain orde
 ### Export Flow
 
 ```
-┌──────────────────┐
-│ReplyKeyboardChoice│  "Previous Month" or "Provide Month"
-│  BranchDialog    │
-└────────┬─────────┘
+┌───────────────────┐
+│ReplyKeyboardChoice│  "Current Month", "Previous Month", or "Provide Month"
+│  BranchDialog     │
+└────────┬──────────┘
          │
-    ┌────┴────┐
-    │         │
-    ▼         ▼
-Previous   UserInput
-Month      (MM/YYYY)
-    │         │
-    └────┬────┘
-         │
-         ▼
+         └──┐ 
+    ┌───────┼──────────┐
+    │       │          │
+    ▼       ▼          ▼
+Current  Previous   UserInput
+  Month   Month     (MM/YYYY)
+    │                 │
+    └───────┬─────────┘
+            │
+        ┌───┘
+        ▼
 ┌─────────────────┐
 │  DialogHandler  │  _on_export_complete callback
 │   (export)      │  → TelegramDocumentMessage(csv_path)
@@ -410,20 +412,22 @@ Month      (MM/YYYY)
 ### Chart Flow
 
 ```
-┌──────────────────┐
-│ReplyKeyboardChoice│  "Previous Month" or "Provide Month"
-│  BranchDialog    │
-└────────┬─────────┘
+┌───────────────────┐
+│ReplyKeyboardChoice│  "Current Month", "Previous Month", or "Provide Month"
+│     Dialog        │
+└────────┬──────────┘
          │
-    ┌────┴────┐
-    │         │
-    ▼         ▼
-Previous   UserInput
-Month      (MM/YYYY)
-    │         │
-    └────┬────┘
-         │
-         ▼
+         └──┐ 
+    ┌───────┼──────────┐
+    │       │          │
+    ▼       ▼          ▼
+Current  Previous   UserInput
+  Month   Month     (MM/YYYY)
+    │                 │
+    └───────┬─────────┘
+            │
+        ┌───┘
+        ▼
 ┌─────────────────┐
 │  DialogHandler  │  _on_chart_complete callback
 │   (chart)       │  → generate_expense_chart()
@@ -433,7 +437,7 @@ Month      (MM/YYYY)
 
 **Flow Details:**
 
-1. **Month Selection**: User selects "Previous Month" or "Provide Month" (enters MM/YYYY)
+1. **Month Selection**: User selects "Current Month", "Previous Month", or "Provide Month" (enters MM/YYYY)
 2. **Immediate Generation**: Chart is generated and sent immediately after month selection (no confirmation step)
 3. **Completion**: `_on_chart_complete` callback is called (chart already sent, nothing more to do)
 
