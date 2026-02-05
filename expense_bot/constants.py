@@ -3,7 +3,7 @@
 This module defines expense categories and help text used throughout the bot.
 """
 
-# Category choices for ChoiceDialog: (display_label, callback_data)
+# Category choices for ReplyKeyboardChoiceDialog: (display_label, callback_data)
 CATEGORIES: list[tuple[str, str]] = [
     ("Home", "home"),
     ("Transportation", "transport"),

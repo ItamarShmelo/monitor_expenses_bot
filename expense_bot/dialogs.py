@@ -12,13 +12,13 @@ from datetime import datetime
 from typing import Any, Optional
 
 from my_bot_framework import (
-    ChoiceDialog,
-    ChoiceBranchDialog,
-    ConfirmDialog,
     Dialog,
     DialogHandler,
     DialogResult,
-    PaginatedChoiceDialog,
+    ReplyKeyboardChoiceDialog,
+    ReplyKeyboardChoiceBranchDialog,
+    ReplyKeyboardConfirmDialog,
+    ReplyKeyboardPaginatedChoiceDialog,
     SequenceDialog,
     UserInputDialog,
     get_app,
@@ -88,7 +88,7 @@ def get_main_keyboard_message(
     """
     return TelegramReplyKeyboardMessage(
         text=text,
-        keyboard=[["Add", "More"]],
+        keyboard=[["Add"], ["More"]],
     )
 
 
@@ -139,10 +139,10 @@ def get_info_text() -> str:
 
 def _is_valid_category(result: Any) -> bool:
     """Check if result is a valid category (not 'help' or cancelled).
-    
+
     Args:
         result: The result to validate.
-        
+
     Returns:
         True if valid category or cancelled, False otherwise.
     """
@@ -153,7 +153,7 @@ def _is_valid_category(result: Any) -> bool:
 
 async def _on_add_complete(result: DialogResult) -> None:
     """Handle completion of add expense dialog.
-    
+
     Args:
         result: The dialog result containing expense data.
     """
@@ -216,12 +216,12 @@ class CategoryChoiceWithHelp(Dialog):
     def __init__(self) -> None:
         """Initialize the category choice dialog."""
         super().__init__()
-        self._choice_dialog: Optional[ChoiceDialog] = None
+        self._choice_dialog: Optional[ReplyKeyboardChoiceDialog] = None
 
     async def _run_dialog(self) -> DialogResult:
         """Run the category selection with help loop."""
         while True:
-            self._choice_dialog = ChoiceDialog(
+            self._choice_dialog = ReplyKeyboardChoiceDialog(
                 prompt="Select expense category:",
                 choices=CATEGORIES,
                 include_cancel=True,
@@ -286,7 +286,7 @@ def _get_expense_choices(
     year: int,
     month: int,
 ) -> list[tuple[str, str]]:
-    """Get expense choices for PaginatedChoiceDialog.
+    """Get expense choices for ReplyKeyboardPaginatedChoiceDialog.
 
     Args:
         year: The year to get expenses from.
@@ -327,7 +327,7 @@ def _parse_expense_callback(callback: str) -> tuple[int, int, int]:
 
 async def _on_remove_complete(result: DialogResult) -> None:
     """Handle completion of remove expense dialog.
-    
+
     Args:
         result: The dialog result containing expense selection.
     """
@@ -369,7 +369,7 @@ def _create_expense_selection_dialog(year: int, month: int) -> Dialog:
         month: The month.
 
     Returns:
-        PaginatedChoiceDialog for expense selection.
+        ReplyKeyboardPaginatedChoiceDialog for expense selection.
     """
     choices = _get_expense_choices(year, month)
     if not choices:
@@ -379,7 +379,7 @@ def _create_expense_selection_dialog(year: int, month: int) -> Dialog:
             include_cancel=True,
         )
 
-    return PaginatedChoiceDialog(
+    return ReplyKeyboardPaginatedChoiceDialog(
         prompt=f"Select expense from {month:02d}/{year}:",
         items=choices,
         page_size=5,
@@ -412,7 +412,7 @@ class RemoveExpenseDialog(Dialog):
         now = datetime.now()
 
         # First, ask which month
-        month_choice = ChoiceDialog(
+        month_choice = ReplyKeyboardChoiceDialog(
             prompt="Select expenses from:",
             choices=[
                 ("Current Month", "current"),
@@ -466,7 +466,7 @@ class RemoveExpenseDialog(Dialog):
                 return expense_result
 
             # Confirm deletion after expense is selected
-            confirm_dialog = ConfirmDialog("Remove this expense?", include_cancel=True)
+            confirm_dialog = ReplyKeyboardConfirmDialog("Remove this expense?", include_cancel=True)
             confirm_result = await confirm_dialog.start(self.context)
 
             if is_cancelled(confirm_result):
@@ -512,7 +512,7 @@ def create_remove_expense_dialog() -> Dialog:
 
 async def _on_modify_complete(result: DialogResult) -> None:
     """Handle completion of modify expense dialog.
-    
+
     Args:
         result: The dialog result containing modified expense data.
     """
@@ -632,7 +632,7 @@ class ModifyExpenseDialog(Dialog):
         now = datetime.now()
 
         # First, ask which month
-        month_choice = ChoiceDialog(
+        month_choice = ReplyKeyboardChoiceDialog(
             prompt="Select expenses from:",
             choices=[
                 ("Current Month", "current"),
@@ -713,7 +713,7 @@ class ModifyExpenseDialog(Dialog):
         # Category selection with "Keep Current" option
         # Order: categories, Keep Current, Help (Cancel added by dialog)
         category_choices = CATEGORIES_NO_HELP + [("Keep Current", "keep"), ("Help", "help")]
-        category_dialog = ChoiceDialog(
+        category_dialog = ReplyKeyboardChoiceDialog(
             prompt=f"Category (current: {old_category_name}):",
             choices=category_choices,
             include_cancel=True,
@@ -733,7 +733,7 @@ class ModifyExpenseDialog(Dialog):
         new_category = old_category if category_result == "keep" else category_result
 
         # Description with "Keep Current" option at the end
-        desc_choice = ChoiceDialog(
+        desc_choice = ReplyKeyboardChoiceDialog(
             prompt=f"Description (current: {old_description}):",
             choices=[
                 ("Enter New", "new"),
@@ -756,7 +756,7 @@ class ModifyExpenseDialog(Dialog):
             new_description = old_description
 
         # Price with "Keep Current" option at the end
-        price_choice = ChoiceDialog(
+        price_choice = ReplyKeyboardChoiceDialog(
             prompt=f"Price (current: ₪{old_price:.2f}):",
             choices=[
                 ("Enter New", "new"),
@@ -802,7 +802,7 @@ class ModifyExpenseDialog(Dialog):
         confirm_message = "Confirm changes?\n\n" + "\n".join(changes)
 
         # Confirm modification
-        confirm_dialog = ConfirmDialog(confirm_message, include_cancel=True)
+        confirm_dialog = ReplyKeyboardConfirmDialog(confirm_message, include_cancel=True)
         confirm_result = await confirm_dialog.start(self.context)
 
         if is_cancelled(confirm_result):
@@ -851,7 +851,7 @@ def create_modify_expense_dialog() -> Dialog:
 
 async def _on_export_complete(result: DialogResult) -> None:
     """Handle completion of export dialog.
-    
+
     Args:
         result: The dialog result containing month selection.
     """
@@ -909,10 +909,10 @@ def create_export_dialog() -> Dialog:
         Dialog for exporting CSV files.
     """
     return DialogHandler(
-        ChoiceBranchDialog(
+        ReplyKeyboardChoiceBranchDialog(
             prompt="Export expenses for which month?",
             branches={
-                "previous": ("Previous Month", ConfirmDialog("Export?", include_cancel=True)),
+                "previous": ("Previous Month", ReplyKeyboardConfirmDialog("Export?", include_cancel=True)),
                 "custom": ("Provide Month", UserInputDialog(
                     "Enter month (MM/YYYY):",
                     validator=validate_date_format("%m/%Y", "MM/YYYY"),
@@ -975,7 +975,7 @@ class ChartDialog(Dialog):
         now = datetime.now()
 
         # Ask which month
-        month_choice = ChoiceDialog(
+        month_choice = ReplyKeyboardChoiceDialog(
             prompt="Generate chart for which month?",
             choices=[
                 ("Previous Month", "previous"),
@@ -1042,7 +1042,7 @@ class ChartDialog(Dialog):
 
 async def _on_chart_complete(result: DialogResult) -> None:
     """Handle completion of chart dialog.
-    
+
     Args:
         result: The dialog result containing month selection.
     """

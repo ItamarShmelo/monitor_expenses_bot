@@ -208,13 +208,13 @@ VALID_CATEGORIES = {"home", "transport", "groceries", "dining", "other"}
 
 **CategoryChoiceWithHelp:**
 
-A custom `Dialog` subclass that wraps `ChoiceDialog` and handles the "Help" button by showing category descriptions and re-displaying the choice buttons:
+A custom `Dialog` subclass that wraps `ReplyKeyboardChoiceDialog` and handles the "Help" button by showing category descriptions and re-displaying the choice buttons:
 
 ```python
 class CategoryChoiceWithHelp(Dialog):
     async def _run_dialog(self) -> DialogResult:
         while True:
-            result = await ChoiceDialog(...).start(self.context)
+            result = await ReplyKeyboardChoiceDialog(...).start(self.context)
             if result == "help":
                 await get_app().send_messages(CATEGORY_HELP)
                 continue  # Show choices again
@@ -225,7 +225,8 @@ class CategoryChoiceWithHelp(Dialog):
 
 ```
 ┌──────────────────┐
-│ChoiceBranchDialog│  "Current Month" or "Different Month"
+│ReplyKeyboardChoice│  "Current Month" or "Different Month"
+│  BranchDialog    │
 └────────┬─────────┘
          │
     ┌────┴────┐
@@ -238,13 +239,15 @@ Month      (MM/YYYY)
          │
          ▼
 ┌─────────────────┐
-│ PaginatedChoice │◄─────────┐ 5 expenses per page, newest first
-│    Dialog       │          │ [Category] Description - ₪X.XX (DD/MM)
+│ReplyKeyboard    │◄─────────┐ 5 expenses per page, newest first
+│PaginatedChoice  │          │ [Category] Description - ₪X.XX (DD/MM)
+│Dialog           │          │
 └────────┬────────┘          │
          │                   │
          ▼                   │
 ┌─────────────────┐          │
-│ ConfirmDialog   │          │  
+│ReplyKeyboard    │          │  
+│ConfirmDialog    │          │
 │ "Remove this    │          │
 │      expense?"  │          │
 └────────┬────────┘          │
@@ -291,7 +294,7 @@ def _parse_expense_callback(callback: str) -> tuple[int, int, int]:
          │                                                      │
          ▼                                                      │
 ┌─────────────────┐                                             │
-│ Expense Select  │  PaginatedChoiceDialog                      │
+│ Expense Select  │  ReplyKeyboardPaginatedChoiceDialog         │
 └────────┬────────┘                                             │
          │                                                      │
          ▼                                                      │
@@ -385,7 +388,8 @@ When modifying, the original `id` and `timestamp` are preserved to maintain orde
 
 ```
 ┌──────────────────┐
-│ChoiceBranchDialog│  "Previous Month" or "Provide Month"
+│ReplyKeyboardChoice│  "Previous Month" or "Provide Month"
+│  BranchDialog    │
 └────────┬─────────┘
          │
     ┌────┴────┐
@@ -407,7 +411,8 @@ Month      (MM/YYYY)
 
 ```
 ┌──────────────────┐
-│ChoiceBranchDialog│  "Previous Month" or "Provide Month"
+│ReplyKeyboardChoice│  "Previous Month" or "Provide Month"
+│  BranchDialog    │
 └────────┬─────────┘
          │
     ┌────┴────┐
@@ -572,11 +577,11 @@ The keyboard event loop (`run_keyboard_event()`) handles:
 |-----------|-------|
 | `BotApplication` | Singleton for bot lifecycle |
 | `TelegramReplyKeyboardMessage` | Persistent keyboard buttons (main menu, More menu) |
-| `ChoiceDialog` | Category selection (inline buttons) |
-| `ChoiceBranchDialog` | Month selection (current vs custom) |
-| `PaginatedChoiceDialog` | Expense selection (5 per page) |
+| `ReplyKeyboardChoiceDialog` | Category selection (reply keyboard buttons) |
+| `ReplyKeyboardChoiceBranchDialog` | Month selection (current vs custom) |
+| `ReplyKeyboardPaginatedChoiceDialog` | Expense selection (5 per page) |
 | `UserInputDialog` | Text/number input with validation |
-| `ConfirmDialog` | Confirmation prompts |
+| `ReplyKeyboardConfirmDialog` | Confirmation prompts |
 | `SequenceDialog` | Chaining dialogs (add flow) |
 | `DialogHandler` | Callback on completion |
 | `Dialog` | Base class for custom dialogs (CategoryChoiceWithHelp, RemoveExpenseDialog, etc.) |
@@ -601,11 +606,11 @@ class CategoryChoiceWithHelp(Dialog):
     
     def __init__(self) -> None:
         super().__init__()
-        self._choice_dialog: Optional[ChoiceDialog] = None
+        self._choice_dialog: Optional[ReplyKeyboardChoiceDialog] = None
 
     async def _run_dialog(self) -> DialogResult:
         while True:
-            self._choice_dialog = ChoiceDialog(
+            self._choice_dialog = ReplyKeyboardChoiceDialog(
                 prompt="Select expense category:",
                 choices=CATEGORIES,
                 include_cancel=True,
