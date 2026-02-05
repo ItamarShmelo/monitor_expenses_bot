@@ -42,13 +42,18 @@ class Expense:
         return [
             str(self.id),
             self.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
-            self.category.capitalize(),
+            self.category,
             self.description,
             f"{self.price:.2f}",
         ]
 
     @classmethod
-    def from_row(cls, row: list[str], year: int, month: int) -> "Expense":
+    def from_row(
+        cls,
+        row: list[str],
+        year: int,
+        month: int,
+    ) -> "Expense":
         """Create an Expense from a CSV row.
 
         Args:

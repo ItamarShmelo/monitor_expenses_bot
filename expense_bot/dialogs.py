@@ -220,26 +220,59 @@ class CategoryChoiceWithHelp(Dialog):
 
     async def _run_dialog(self) -> DialogResult:
         """Run the category selection with help loop."""
+        import logging
+        logger = logging.getLogger("expense_bot.dialogs")
+        logger.info("CategoryChoiceWithHelp._run_dialog STARTED")
+        
+        iteration = 0
         while True:
+            iteration += 1
+            logger.info(
+                "CategoryChoiceWithHelp: starting iteration %d, creating ReplyKeyboardChoiceDialog",
+                iteration,
+            )
+            
             self._choice_dialog = ReplyKeyboardChoiceDialog(
                 prompt="Select expense category:",
                 choices=CATEGORIES,
                 include_cancel=True,
             )
+            
+            logger.info(
+                "CategoryChoiceWithHelp: calling _choice_dialog.start(), categories=%s",
+                CATEGORIES,
+            )
             result = await self._choice_dialog.start(self.context)
+            logger.info(
+                "CategoryChoiceWithHelp: _choice_dialog.start() returned, result=%r, type=%s",
+                result,
+                type(result).__name__,
+            )
 
             if is_cancelled(result):
+                logger.info("CategoryChoiceWithHelp: result is CANCELLED, returning")
                 self._value = result
                 return result
 
             if result == "help":
                 # Show help and loop again
+                logger.info("CategoryChoiceWithHelp: result is 'help', showing help and continuing loop")
                 await get_app().send_messages(CATEGORY_HELP)
                 continue
 
             if result in VALID_CATEGORIES:
+                logger.info(
+                    "CategoryChoiceWithHelp: result %r is valid category, setting _value and returning",
+                    result,
+                )
                 self._value = result
                 return result
+            
+            logger.warning(
+                "CategoryChoiceWithHelp: result %r not in VALID_CATEGORIES %s, looping again",
+                result,
+                VALID_CATEGORIES,
+            )
 
     def build_result(self) -> DialogResult:
         """Return the selected category."""
