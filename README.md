@@ -72,6 +72,42 @@ python expense_bot/main.py
 
 The bot will send a startup message with a persistent keyboard when it begins running. Use the keyboard buttons to interact with the bot.
 
+### Running in the Background
+
+To run the bot as a persistent background process that survives terminal closure:
+
+```bash
+nohup uv run python3 -m expense_bot.main > expense_bot.out 2> expense_bot.err &
+```
+
+**Command breakdown:**
+
+| Part | Meaning |
+|------|---------|
+| `nohup` | "No hangup" - prevents the process from being killed when you close the terminal or log out |
+| `uv run` | Uses the `uv` package manager to run a command in the project's virtual environment |
+| `python3 -m expense_bot.main` | Runs the `expense_bot.main` module as a Python script |
+| `> expense_bot.out` | Redirects standard output (stdout) to a file called `expense_bot.out` |
+| `2> expense_bot.err` | Redirects standard error (stderr) to a file called `expense_bot.err` |
+| `&` | Runs the entire command in the background, returning control to the terminal immediately |
+
+
+**Stopping the bot:**
+
+```bash
+# Find the bot process ID
+ps aux | grep expense_bot
+
+# Kill the process using its PID
+kill <PID>
+```
+
+For example, if `ps aux | grep expense_bot` shows:
+```
+user  12345  0.5  1.2  python3 -m expense_bot.main
+```
+Then run `kill 12345` to stop the bot.
+
 ## Interface
 
 The bot uses a **keyboard-based interface** with persistent buttons:
