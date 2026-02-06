@@ -1,0 +1,15 @@
+---
+description: Never modify files inside the my_bot_framework submodule directly
+alwaysApply: true
+---
+
+# Do Not Modify the Submodule
+
+The `my_bot_framework/` directory is a **git submodule** with its own repository, rules, and subagents.
+
+**NEVER** edit, create, or delete files inside `my_bot_framework/` from this project.
+
+If a fix or feature requires changes in the framework:
+1. Tell the user what needs to change and why.
+2. Provide a ready-to-use prompt they can give to the agent in the submodule's own session.
+3. Apply any changes needed in **this** project only (e.g., `expense_bot/`).
