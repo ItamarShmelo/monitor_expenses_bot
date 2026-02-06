@@ -72,6 +72,14 @@ python expense_bot/main.py
 
 The bot will send a startup message with a persistent keyboard when it begins running. Use the keyboard buttons to interact with the bot.
 
+The bot uses `BotApplication.run(skip_commands=True)` from the framework, which handles:
+- HTTP session initialization
+- Pending update flushing
+- Event task management
+- Graceful shutdown
+
+The `KeyboardEvent` is registered via `app.register_event()` and handles all keyboard button presses and built-in commands (`/terminate`, `/commands`).
+
 ### Running in the Background
 
 To run the bot as a persistent background process that survives terminal closure:
@@ -107,6 +115,8 @@ For example, if `ps aux | grep expense_bot` shows:
 user  12345  0.5  1.2  python3 -m expense_bot.main
 ```
 Then run `kill 12345` to stop the bot.
+
+Alternatively, send `/terminate` to the bot in Telegram for graceful shutdown.
 
 ## Interface
 
@@ -195,6 +205,8 @@ Each CSV file has the following columns:
 ## Logging
 
 The bot logs all activity to `expense_bot.log` in the project root directory. Logs are written in append mode, so previous log entries are preserved when the bot restarts. The log file includes timestamps, log levels, and detailed information about bot operations, errors, and user interactions.
+
+All log messages follow the framework's logging convention: `"ClassName.method: message key=value"` format for consistent, structured logging.
 
 To view logs in real-time:
 ```bash

@@ -20,11 +20,8 @@ from my_bot_framework import (
     BotApplication,
     Event,
     UpdatePollerMixin,
-    flush_pending_updates,
     get_app,
-    get_bot,
     get_logger,
-    get_stop_event,
     set_next_update_id,
     TelegramCallbackAnswerMessage,
     TelegramRemoveKeyboardMessage,
@@ -126,7 +123,7 @@ class KeyboardEvent(Event, UpdatePollerMixin):
         if callback_query is None:
             return
 
-        logger.debug("stale_callback_received id=%s", callback_query.id)
+        logger.debug("KeyboardEvent.handle_callback_update: stale_callback id=%s", callback_query.id)
 
         await get_app().send_messages(TelegramCallbackAnswerMessage(
             callback_query.id,
@@ -152,14 +149,14 @@ class KeyboardEvent(Event, UpdatePollerMixin):
 
         # Handle built-in commands
         if text == "/terminate":
-            logger.info("command_matched command=/terminate")
+            logger.info("KeyboardEvent.handle_text_update: matched command=/terminate")
             await get_app().send_messages("Bot terminating...")
             if self._stop_event:
                 self._stop_event.set()
             return
 
         if text == "/commands":
-            logger.info("command_matched command=/commands")
+            logger.info("KeyboardEvent.handle_text_update: matched command=/commands")
             commands_text = (
                 "<b>Available Commands:</b>\n"
                 "/terminate - Terminate the bot and shut down.\n"
@@ -170,58 +167,61 @@ class KeyboardEvent(Event, UpdatePollerMixin):
 
         # Handle main menu buttons
         if text == "Add":
-            logger.info("Handling Add button")
+            logger.info("KeyboardEvent.handle_text_update: handling button=Add")
             set_next_update_id(update.update_id + 1)
             await self._handle_add()
             return
 
         if text == "More":
-            logger.info("Handling More button")
+            logger.info("KeyboardEvent.handle_text_update: handling button=More")
             await self._send_more_keyboard()
             return
 
         # Handle More menu buttons
         if text == "Back":
-            logger.info("Handling Back button")
+            logger.info("KeyboardEvent.handle_text_update: handling button=Back")
             await self._send_main_keyboard()
             return
 
         if text == "Remove":
-            logger.info("Handling Remove button")
+            logger.info("KeyboardEvent.handle_text_update: handling button=Remove")
             set_next_update_id(update.update_id + 1)
             await self._handle_remove()
             return
 
         if text == "Modify":
-            logger.info("Handling Modify button")
+            logger.info("KeyboardEvent.handle_text_update: handling button=Modify")
             set_next_update_id(update.update_id + 1)
             await self._handle_modify()
             return
 
         if text == "Recent":
-            logger.info("Handling Recent button")
+            logger.info("KeyboardEvent.handle_text_update: handling button=Recent")
             await self._handle_recent()
             return
 
         if text == "Export":
-            logger.info("Handling Export button")
+            logger.info("KeyboardEvent.handle_text_update: handling button=Export")
             set_next_update_id(update.update_id + 1)
             await self._handle_export()
             return
 
         if text == "Chart":
-            logger.info("Handling Chart button")
+            logger.info("KeyboardEvent.handle_text_update: handling button=Chart")
             set_next_update_id(update.update_id + 1)
             await self._handle_chart()
             return
 
         if text == "Info":
-            logger.info("Handling Info button")
+            logger.info("KeyboardEvent.handle_text_update: handling button=Info")
             await self._handle_info()
             return
 
         # Ignore other messages
-        logger.debug("Ignoring message: %s", text[:50] if len(text) > 50 else text)
+        logger.debug(
+            "KeyboardEvent.handle_text_update: ignoring text=%s",
+            text[:50] if len(text) > 50 else text,
+        )
 
     async def submit(self, stop_event: asyncio.Event) -> None:
         """Run the event loop.
@@ -231,7 +231,7 @@ class KeyboardEvent(Event, UpdatePollerMixin):
         """
         self._stop_event = stop_event
         logger = get_logger()
-        logger.info("[%s] keyboard_event_started", self.event_name)
+        logger.info("KeyboardEvent.submit: started event=%s", self.event_name)
 
         # Send initial main keyboard
         await self._send_main_keyboard(
@@ -241,13 +241,13 @@ class KeyboardEvent(Event, UpdatePollerMixin):
         # Start polling
         await self.poll()
 
-        logger.info("[%s] keyboard_event_stopped", self.event_name)
+        logger.info("KeyboardEvent.submit: stopped event=%s", self.event_name)
 
     async def _send_main_keyboard(self, text: Optional[str] = None) -> None:
         """Send the main keyboard to the user.
 
         Args:
-            text: Optional custom text. Defaults to standard prompt.
+            text: Custom text. Defaults to standard prompt.
         """
         if text:
             message = get_main_keyboard_message(text)
@@ -301,32 +301,9 @@ class KeyboardEvent(Event, UpdatePollerMixin):
         await self._send_main_keyboard()
 
 
-async def run_bot(logger: logging.Logger) -> None:
-    """Run the bot with a single keyboard event.
-
-    This runs the KeyboardEvent directly without using app.run() to avoid
-    having multiple polling events that exhaust the connection pool.
-
-    Args:
-        logger: Logger for recording events.
-    """
-    # Flush pending updates
-    await flush_pending_updates(get_bot())
-
-    # Create and run the keyboard event
-    stop_event = get_stop_event()
-    keyboard_event = KeyboardEvent()
-
-    logger.info("bot_started")
-
-    await keyboard_event.submit(stop_event)
-
-    logger.info("bot_stopped")
-
-
 def main() -> None:
     """Initialize and run the expense monitoring bot.
-    
+
     Sets up file logging, loads credentials, initializes the expense manager,
     and starts the bot application. Exits with code 1 if credentials are missing
     or invalid.
@@ -342,13 +319,13 @@ def main() -> None:
         filemode="a",
     )
     logger = logging.getLogger("expense_bot")
-    logger.info("Logging to file: %s", log_file)
+    logger.info("main: logging to_file=%s", log_file)
 
     # Get credentials
     try:
         token, chat_id = get_credentials()
     except (FileNotFoundError, RuntimeError) as e:
-        logger.error("Credential error: %s", e)
+        logger.error("main: credential_error error=%s", e)
         sys.exit(1)
 
     # Initialize expense manager
@@ -356,17 +333,20 @@ def main() -> None:
     expense_manager = ExpenseManager(data_dir)
     set_expense_manager(expense_manager)
 
-    logger.info("Data directory: %s", data_dir)
+    logger.info("main: data_dir=%s", data_dir)
 
-    # Initialize bot application (sets up singletons, but we don't call app.run())
-    BotApplication.initialize(
+    # Initialize bot application and register the keyboard event.
+    # skip_commands=True because KeyboardEvent is the sole poller and
+    # handles /terminate and /commands itself -- registering the built-in
+    # CommandsEvent would create a second poller, exhausting the connection pool.
+    app = BotApplication.initialize(
         token=token,
         chat_id=chat_id,
         logger=logger,
     )
+    app.register_event(KeyboardEvent())
 
-    # Run the bot with our custom run function
-    asyncio.run(run_bot(logger))
+    asyncio.run(app.run(skip_commands=True))
 
 
 if __name__ == "__main__":

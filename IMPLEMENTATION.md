@@ -9,7 +9,7 @@ The bot is built on top of `my_bot_framework` and follows its patterns for dialo
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │                         main.py                                  │
-│         (Entry point, keyboard handling, event loop)             │
+│    (Entry point, BotApplication.run(), KeyboardEvent)           │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌──────────────┐    ┌───────────────┐    ┌──────────────────┐   │
@@ -27,7 +27,8 @@ The bot is built on top of `my_bot_framework` and follows its patterns for dialo
 │                                                                  │
 ├──────────────────────────────────────────────────────────────────┤
 │                      my_bot_framework                            │
-│         (BotApplication, Dialogs, ReplyKeyboards, Messages)     │
+│  (BotApplication.run() - HTTP session, event loop, shutdown)    │
+│         (Dialogs, ReplyKeyboards, Messages, Polling)            │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -464,28 +465,35 @@ The More menu keyboard has:
 
 ### Keyboard Handling
 
-Keyboard buttons are handled in `main.py` via `handle_text_update()`:
+Keyboard buttons are handled in `main.py` via `KeyboardEvent.handle_text_update()`:
 
 ```python
 # Main menu buttons
 if text == "Add":
-    await handle_add()  # Starts add expense dialog
+    logger.info("KeyboardEvent.handle_text_update: handling button=Add")
+    set_next_update_id(update.update_id + 1)
+    await self._handle_add()  # Starts add expense dialog
 if text == "More":
-    await send_more_keyboard()  # Shows More menu
+    logger.info("KeyboardEvent.handle_text_update: handling button=More")
+    await self._send_more_keyboard()  # Shows More menu
 
 # More menu buttons
 if text == "Remove":
-    await handle_remove()  # Starts remove expense dialog
+    logger.info("KeyboardEvent.handle_text_update: handling button=Remove")
+    set_next_update_id(update.update_id + 1)
+    await self._handle_remove()  # Starts remove expense dialog
 # ... etc
 ```
+
+All log messages follow the `"ClassName.method: message key=value"` format for consistency.
 
 ### Remaining Commands
 
 Only two commands remain:
-- `/commands` - Lists available commands (built-in)
-- `/terminate` - Stops the bot gracefully (built-in)
+- `/commands` - Lists available commands (handled by KeyboardEvent)
+- `/terminate` - Stops the bot gracefully (handled by KeyboardEvent, sets stop_event)
 
-These are handled separately in `handle_text_update()` before keyboard button routing.
+These are handled in `KeyboardEvent.handle_text_update()` before keyboard button routing. The bot uses `skip_commands=True` when calling `app.run()` to prevent registering the built-in `CommandsEvent`, since `KeyboardEvent` handles these commands itself.
 
 ## Data Flow
 
@@ -565,8 +573,13 @@ if is_cancelled(result):
 3. Initialize ExpenseManager with data/ directory
 4. Call set_expense_manager() to make it globally available
 5. Initialize BotApplication with credentials
-6. Send startup message with main keyboard
-7. Start keyboard event loop (polling for updates)
+6. Register KeyboardEvent via app.register_event()
+7. Call app.run(skip_commands=True) - framework handles:
+   - HTTP session initialization
+   - Pending update flushing
+   - Event task management
+   - Graceful shutdown
+8. KeyboardEvent.submit() sends startup message and starts polling
 ```
 
 **Logging Configuration:**
@@ -577,7 +590,13 @@ Logging is configured in `main()` using `logging.basicConfig()`:
 - **Level**: INFO
 - **Format**: `%(asctime)s %(levelname)s %(name)s: %(message)s`
 
-The keyboard event loop (`run_keyboard_event()`) handles:
+All log messages follow the framework's logging convention: `"ClassName.method: message key=value"` format for consistent, structured logging.
+
+**Framework Integration:**
+
+The bot uses `BotApplication.run(skip_commands=True)` instead of manually managing the event loop. The `skip_commands=True` parameter prevents registering the built-in `CommandsEvent`, since `KeyboardEvent` is the sole poller and handles `/terminate` and `/commands` itself. Registering both would create duplicate pollers and exhaust the connection pool.
+
+The keyboard event loop (`KeyboardEvent.submit()` → `poll()`) handles:
 - Text messages (keyboard button presses, commands)
 - Callback queries (stale inline buttons from dialogs)
 - Routes to appropriate handlers based on button text
@@ -588,7 +607,7 @@ The keyboard event loop (`run_keyboard_event()`) handles:
 
 | Component | Usage |
 |-----------|-------|
-| `BotApplication` | Singleton for bot lifecycle |
+| `BotApplication` | Singleton for bot lifecycle, handles HTTP session init, pending update flush, event task management, graceful shutdown |
 | `TelegramReplyKeyboardMessage` | Persistent keyboard buttons (main menu, More menu) |
 | `ReplyKeyboardChoiceDialog` | Category selection (reply keyboard buttons) |
 | `ReplyKeyboardChoiceBranchDialog` | Month selection (current vs custom) |
@@ -606,8 +625,8 @@ The keyboard event loop (`run_keyboard_event()`) handles:
 | `validate_date_format` | Date format validation |
 | `format_numbered_list` | Recent expenses formatting |
 | `is_cancelled` / `CANCELLED` | Cancellation detection |
-| `poll_updates` | Poll for Telegram updates |
-| `get_stop_event` | Event for graceful shutdown |
+| `UpdatePollerMixin` | Provides polling functionality for events |
+| `set_next_update_id` | Track update IDs for polling |
 
 ### Custom Dialog: CategoryChoiceWithHelp
 
@@ -671,21 +690,21 @@ class CategoryChoiceWithHelp(Dialog):
 
 1. Create dialog factory function in `dialogs.py` (if needed)
 2. Create completion callback `_on_X_complete` (if dialog-based)
-3. Add handler function in `main.py`:
+3. Add handler method to `KeyboardEvent` class in `main.py`:
    ```python
-   async def handle_new_feature() -> None:
+   async def _handle_new_feature(self) -> None:
        """Handle the New Feature button press."""
        dialog = create_new_dialog()
        await dialog.start({})
-       await send_main_keyboard()
+       await self._send_main_keyboard()
    ```
-4. Add button text handling in `handle_text_update()`:
+4. Add button text handling in `KeyboardEvent.handle_text_update()`:
    ```python
    if text == "New Feature":
-       logger.info("Handling New Feature button")
+       logger.info("KeyboardEvent.handle_text_update: handling button=New Feature")
        set_next_update_id(update.update_id + 1)
-       await handle_new_feature()
-       return False
+       await self._handle_new_feature()
+       return
    ```
 5. Add button to keyboard in `dialogs.py`:
    ```python

@@ -8,6 +8,7 @@ This module defines all interactive dialog flows for expense management:
 - Chart generation flow
 """
 
+import logging
 from datetime import datetime
 from typing import Any, Optional
 
@@ -220,15 +221,14 @@ class CategoryChoiceWithHelp(Dialog):
 
     async def _run_dialog(self) -> DialogResult:
         """Run the category selection with help loop."""
-        import logging
         logger = logging.getLogger("expense_bot.dialogs")
-        logger.info("CategoryChoiceWithHelp._run_dialog STARTED")
+        logger.info("CategoryChoiceWithHelp._run_dialog: started")
 
         iteration = 0
         while True:
             iteration += 1
-            logger.info(
-                "CategoryChoiceWithHelp: starting iteration %d, creating ReplyKeyboardChoiceDialog",
+            logger.debug(
+                "CategoryChoiceWithHelp._run_dialog: iteration=%d creating_choice_dialog",
                 iteration,
             )
 
@@ -238,40 +238,34 @@ class CategoryChoiceWithHelp(Dialog):
                 include_cancel=True,
             )
 
-            logger.info(
-                "CategoryChoiceWithHelp: calling _choice_dialog.start(), categories=%s",
-                CATEGORIES,
-            )
             result = await self._choice_dialog.start(self.context)
-            logger.info(
-                "CategoryChoiceWithHelp: _choice_dialog.start() returned, result=%r, type=%s",
+            logger.debug(
+                "CategoryChoiceWithHelp._run_dialog: choice_returned result=%r type=%s",
                 result,
                 type(result).__name__,
             )
 
             if is_cancelled(result):
-                logger.info("CategoryChoiceWithHelp: result is CANCELLED, returning")
+                logger.info("CategoryChoiceWithHelp._run_dialog: cancelled")
                 self._value = result
                 return result
 
             if result == "help":
-                # Show help and loop again
-                logger.info("CategoryChoiceWithHelp: result is 'help', showing help and continuing loop")
+                logger.info("CategoryChoiceWithHelp._run_dialog: help_requested")
                 await get_app().send_messages(CATEGORY_HELP)
                 continue
 
             if result in VALID_CATEGORIES:
                 logger.info(
-                    "CategoryChoiceWithHelp: result %r is valid category, setting _value and returning",
+                    "CategoryChoiceWithHelp._run_dialog: selected category=%r",
                     result,
                 )
                 self._value = result
                 return result
 
             logger.warning(
-                "CategoryChoiceWithHelp: result %r not in VALID_CATEGORIES %s, looping again",
+                "CategoryChoiceWithHelp._run_dialog: invalid_category result=%r",
                 result,
-                VALID_CATEGORIES,
             )
 
     def build_result(self) -> DialogResult:
@@ -279,14 +273,12 @@ class CategoryChoiceWithHelp(Dialog):
         return self._value
 
     def handle_callback(self, callback_data: str) -> None:
-        """Delegate to inner dialog."""
-        if self._choice_dialog:
-            self._choice_dialog.handle_callback(callback_data)
+        """Handle callback - child dialog handles its own callbacks."""
+        pass
 
     def handle_text_input(self, text: str) -> None:
-        """Delegate to inner dialog."""
-        if self._choice_dialog:
-            self._choice_dialog.handle_text_input(text)
+        """Handle text input - child dialog handles its own text input."""
+        pass
 
 
 def create_add_expense_dialog() -> Dialog:
