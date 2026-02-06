@@ -9,7 +9,7 @@ The bot is built on top of `my_bot_framework` and follows its patterns for dialo
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │                         main.py                                  │
-│    (Entry point, BotApplication.run(), KeyboardEvent)           │
+│    (Entry point, BotApplication.run(), KeyboardEvent)            │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌──────────────┐    ┌───────────────┐    ┌──────────────────┐   │
@@ -27,8 +27,8 @@ The bot is built on top of `my_bot_framework` and follows its patterns for dialo
 │                                                                  │
 ├──────────────────────────────────────────────────────────────────┤
 │                      my_bot_framework                            │
-│  (BotApplication.run() - HTTP session, event loop, shutdown)    │
-│         (Dialogs, ReplyKeyboards, Messages, Polling)            │
+│  (BotApplication.run() - HTTP session, event loop, shutdown)     │
+│         (Dialogs, ReplyKeyboards, Messages, Polling)             │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
