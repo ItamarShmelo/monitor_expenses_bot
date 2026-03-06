@@ -113,7 +113,7 @@ data/
 
 Each CSV has columns: `id`, `timestamp`, `category`, `description`, `price`
 
-**Note:** Categories are stored with capital first letter (e.g., "Home", "Transport") via `Expense.to_row()` which calls `category.capitalize()`.
+**Note:** Categories are stored in CSV files using their internal lowercase keys (for example, `home`, `groceries`, `coffee`, and `shopping`). `Expense.to_row()` writes the raw category key as-is, and `Expense.from_row()` reads that same stored key back without converting it to the display label.
 
 ### 2. Dialog Flows (dialogs.py)
 
@@ -150,32 +150,37 @@ Generates pie charts using matplotlib with:
 | Category | Color |
 |----------|-------|
 | Home | Red (#FF6B6B) |
-| Transportation | Teal (#4ECDC4) |
-| Groceries | Blue (#45B7D1) |
-| Dining Out | Green (#96CEB4) |
-| Other | Yellow (#FFEAA7) |
+| Transportation | Blue (#3498DB) |
+| Groceries | Orange (#E67E22) |
+| Dining Out | Emerald Green (#27AE60) |
+| Coffee | Coffee Brown (#8D6E63) |
+| Shopping | Pink (#E84393) |
+| Other | Purple (#9B59B6) |
+
+`generate_expense_chart()` lowercases each category before looking it up in `CATEGORY_NAMES` and `CATEGORY_COLORS`, so stored CSV keys such as `coffee` and `shopping` render with the expected labels and colors.
 
 ### 4. Constants (constants.py)
 
-Defines the category system:
+Defines the category system. A single private category definition list is the
+source of truth, and the exported constants are derived from it:
 
 ```python
-CATEGORIES = [
-    ("Home", "home"),
-    ("Transportation", "transport"),
-    ("Groceries", "groceries"),
-    ("Dining Out", "dining"),
-    ("Other", "other"),
-    ("Help", "help"),
+_CATEGORY_DEFINITIONS = [
+    ("Home", "home", "..."),
+    ("Transportation", "transport", "..."),
+    ...
 ]
 
+CATEGORIES_NO_HELP = [(label, key) for label, key, _ in _CATEGORY_DEFINITIONS]
+CATEGORIES = [*CATEGORIES_NO_HELP, ("Help", "help")]
+
 CATEGORY_NAMES = {
-    "home": "Home",
-    "transport": "Transportation",
-    ...
+    key: label for label, key, _ in _CATEGORY_DEFINITIONS
 }
 
-VALID_CATEGORIES = {"home", "transport", "groceries", "dining", "other"}
+CATEGORY_HELP = "<b>Expense Categories</b>..."  # built from _CATEGORY_DEFINITIONS
+
+VALID_CATEGORIES = {key for _, key, _ in _CATEGORY_DEFINITIONS}
 ```
 
 ## Dialog Flow Details
@@ -501,7 +506,7 @@ These are handled in `KeyboardEvent.handle_text_update()` before keyboard button
 
 ```
 1. User: Presses "Add" button
-2. Bot: Category selection keyboard (inline buttons)
+2. Bot: Category selection keyboard (reply-keyboard buttons)
 3. User: Selects "Groceries"
 4. Bot: "Enter a brief description:"
 5. User: "Weekly shopping"
@@ -513,7 +518,7 @@ These are handled in `KeyboardEvent.handle_text_update()` before keyboard button
          description="Weekly shopping",
          price=85.50
        )
-   └─► Appends row to data/2026/02.csv (category saved as "Groceries")
+   └─► Appends row to data/2026/02.csv (category saved as "groceries")
    └─► Sends confirmation message
    └─► Main keyboard is restored
 ```
@@ -522,9 +527,9 @@ These are handled in `KeyboardEvent.handle_text_update()` before keyboard button
 
 ```csv
 id,timestamp,category,description,price
-1,2026-02-01 10:30:00,Groceries,Weekly shopping,85.50
-2,2026-02-01 14:15:00,Dining,Lunch with colleagues,32.00
-3,2026-02-02 09:00:00,Transport,Gas,45.00
+1,2026-02-01 10:30:00,groceries,Weekly shopping,85.50
+2,2026-02-01 14:15:00,dining,Lunch with colleagues,32.00
+3,2026-02-02 09:00:00,transport,Gas,45.00
 ```
 
 **Note:** Categories are capitalized (first letter uppercase) when written to CSV via `Expense.to_row()`.
@@ -664,24 +669,12 @@ class CategoryChoiceWithHelp(Dialog):
 
 ### Adding a New Category
 
-1. Update `CATEGORIES` in `constants.py`:
+1. Update `_CATEGORY_DEFINITIONS` in `constants.py`:
    ```python
-   CATEGORIES.insert(-1, ("Health", "health"))  # Before Help
+   _CATEGORY_DEFINITIONS.append(("Health", "health", "Medical visits, pharmacy, insurance"))
    ```
 
-2. Update `CATEGORY_NAMES`:
-   ```python
-   CATEGORY_NAMES["health"] = "Health"
-   ```
-
-3. Update `VALID_CATEGORIES`:
-   ```python
-   VALID_CATEGORIES.add("health")
-   ```
-
-4. Update `CATEGORY_HELP` with description
-
-5. Add color to `CATEGORY_COLORS` in `charts.py`:
+2. Add color to `CATEGORY_COLORS` in `charts.py`:
    ```python
    CATEGORY_COLORS["health"] = "#E066FF"
    ```

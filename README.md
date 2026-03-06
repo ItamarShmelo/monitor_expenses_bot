@@ -16,8 +16,12 @@ A Telegram bot for tracking group expenses with CSV storage, interactive dialogs
 - **Home**: Rent, Utilities (electricity, water, gas), Internet, Maintenance, Repairs
 - **Transportation**: Car payments, Gas, Public Transport, Parking, Car wash, Repairs
 - **Groceries**: Supermarket, Food supplies, Farmers market, Household items
-- **Dining Out**: Restaurants, Cafes, Takeout, Delivery, Fast food
-- **Other**: Everything that doesn't fit above - Gifts, Entertainment, Shopping, etc.
+- **Dining Out**: Restaurants, Takeout, Delivery, Fast food, sit-down meals
+- **Coffee**: Coffee shops, cafe drinks, beans, pods, tea, quick cafe snacks
+- **Shopping**: Clothes, online orders, personal items
+- **Other**: Everything that doesn't fit above - Gifts, Entertainment, subscriptions, etc.
+
+Generated charts use a fixed color per category, including Coffee in brown (`#8D6E63`) and Shopping in pink (`#E84393`).
 
 ## Requirements
 
@@ -148,7 +152,7 @@ Only two commands remain available:
 
 Most features use interactive dialogs that guide you through the process:
 
-- **Category Selection**: When adding or modifying expenses, you'll see inline buttons for each category. Select "Help" to see detailed descriptions of what each category includes.
+- **Category Selection**: When adding or modifying expenses, you'll see reply-keyboard buttons for each category. Select "Help" to see detailed descriptions of what each category includes.
 
 - **Month Selection**: For Remove, Modify, Export, and Chart features, you can:
   - Choose "Current Month" for quick access to the current month
@@ -196,11 +200,11 @@ data/
 Each CSV file has the following columns:
 - `id` - Unique identifier within the month (auto-incremented)
 - `timestamp` - When the expense was recorded (format: `YYYY-MM-DD HH:MM:SS`)
-- `category` - Category name with capital first letter (`Home`, `Transport`, `Groceries`, `Dining`, `Other`)
+- `category` - Category key (`home`, `transport`, `groceries`, `dining`, `coffee`, `shopping`, `other`)
 - `description` - Brief description of the expense
 - `price` - Amount in dollars (stored with 2 decimal places)
 
-**Note:** When modifying expenses, the `id` and `timestamp` are preserved to maintain the original order and creation time. You can keep current values for any field by selecting "Keep Current" during modification. Categories are stored with capital first letter in CSV files (e.g., "Home" instead of "home").
+**Note:** When modifying expenses, the `id` and `timestamp` are preserved to maintain the original order and creation time. You can keep current values for any field by selecting "Keep Current" during modification. Categories are stored in CSV files using their internal lowercase keys from the category picker (for example, `home`, `coffee`, and `shopping`), not their display labels.
 
 ## Logging
 
